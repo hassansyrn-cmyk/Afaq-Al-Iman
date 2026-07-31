@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">آفاق الإيمان</string>
+    <string name="title_activity_main">آفاق الإيمان</string>
+    <string name="package_name">com.afaq.iman</string>
+    <string name="custom_url_scheme">com.afaq.iman</string>
+</resources>

@@ -1,0 +1,1 @@
+import type{CapacitorConfig}from'@capacitor/cli';const config:CapacitorConfig={appId:'com.afaq.iman',appName:'آفاق الإيمان',webDir:'dist'};export default config;
