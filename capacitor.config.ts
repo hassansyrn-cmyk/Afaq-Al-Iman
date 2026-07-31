@@ -1,1 +1,1 @@
-import type{CapacitorConfig}from'@capacitor/cli';const config:CapacitorConfig={appId:'com.afaq.iman',appName:'آفاق الإيمان',webDir:'dist',plugins:{StatusBar:{overlaysWebView:false,backgroundColor:'#F7FAF8',style:'LIGHT'},LocalNotifications:{smallIcon:'ic_stat_notify',iconColor:'#0B5D4D'}}};export default config;
+import type{CapacitorConfig}from'@capacitor/cli';const config:CapacitorConfig={appId:'com.afaq.iman',appName:'آفاق الإيمان',webDir:'dist',plugins:{StatusBar:{overlaysWebView:false,backgroundColor:'#F7FAF8',style:'LIGHT'}}};export default config;
