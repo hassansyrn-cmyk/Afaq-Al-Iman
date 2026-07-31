@@ -60,7 +60,7 @@ const save = (key: string, value: unknown) => {
   localStorage.setItem(key, JSON.stringify(value));
 };
 
-const asset = (path: string) => `${import.meta.env.BASE_URL}${path}`;
+const asset = (path: string) => `./${path}`;
 
 const prayerHeroImages: Record<string, string> = {
   fajr: asset("images/home/prayer-fajr.webp"),
@@ -302,7 +302,7 @@ export default function App() {
   };
 
   async function openSura(id: number) {
-    const response = await fetch(`${import.meta.env.BASE_URL}quran/${id}.json`);
+    const response = await fetch(`./quran/${id}.json`);
 
     if (!response.ok) {
       throw new Error(`Failed to load sura ${id}`);
