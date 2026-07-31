@@ -1,8 +1,5 @@
 name: Build Android Debug APK
-on:
-  workflow_dispatch:
-  push:
-    branches: [main]
+on: {workflow_dispatch: {}, push: {branches: [main]}}
 jobs:
   build:
     runs-on: ubuntu-latest
