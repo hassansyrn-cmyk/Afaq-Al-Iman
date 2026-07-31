@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920">
+  <rect width="1080" height="1920" fill="#0B3D2E"/>
+  <circle cx="540" cy="860" r="150" fill="none" stroke="#C9A227" stroke-width="10"/>
+  <path d="M610 740a170 170 0 1 0 0 240 196 196 0 1 1 0-240Z" fill="#F4E7B8"/>
+  <text x="540" y="1060" text-anchor="middle" font-family="Tajawal, sans-serif" font-size="56" fill="#F4E7B8" font-weight="700">آفاق الإيمان</text>
+  <text x="540" y="1120" text-anchor="middle" font-family="sans-serif" font-size="28" fill="#C9A227">Afaq Al-Iman</text>
+</svg>

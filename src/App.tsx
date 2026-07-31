@@ -1,4 +1,67 @@
-import{useEffect,useState}from'react';import{Home,BookOpen,Library,Search,Settings,Moon,Sun,Bell,Info,Shield,Bookmark,ChevronLeft,X,CalendarDays}from'lucide-react';import{LocalNotifications}from'@capacitor/local-notifications';import{Capacitor}from'@capacitor/core';import{hadiths}from'./hadith';import{PrayerTimes,Coordinates,CalculationMethod}from'adhan';
-type Tab='home'|'quran'|'plan'|'hadith'|'settings';type Chapter={id:number;name:string;transliteration:string;total_verses:number;verses:{id:number;text:string}[]};const load=<T,>(k:string,f:T):T=>{try{return JSON.parse(localStorage.getItem(k)||'')as T}catch{return f}};const save=(k:string,v:unknown)=>localStorage.setItem(k,JSON.stringify(v));const suras=['الفاتحة','البقرة','آل عمران','النساء','المائدة','الأنعام','الأعراف','الأنفال','التوبة','يونس','هود','يوسف','الرعد','إبراهيم','الحجر','النحل','الإسراء','الكهف','مريم','طه','الأنبياء','الحج','المؤمنون','النور','الفرقان','الشعراء','النمل','القصص','العنكبوت','الروم','لقمان','السجدة','الأحزاب','سبأ','فاطر','يس','الصافات','ص','الزمر','غافر','فصلت','الشورى','الزخرف','الدخان','الجاثية','الأحقاف','محمد','الفتح','الحجرات','ق','الذاريات','الطور','النجم','القمر','الرحمن','الواقعة','الحديد','المجادلة','الحشر','الممتحنة','الصف','الجمعة','المنافقون','التغابن','الطلاق','التحريم','الملك','القلم','الحاقة','المعارج','نوح','الجن','المزمل','المدثر','القيامة','الإنسان','المرسلات','النبأ','النازعات','عبس','التكوير','الانفطار','المطففين','الانشقاق','البروج','الطارق','الأعلى','الغاشية','الفجر','البلد','الشمس','الليل','الضحى','الشرح','التين','العلق','القدر','البينة','الزلزلة','العاديات','القارعة','التكاثر','العصر','الهمزة','الفيل','قريش','الماعون','الكوثر','الكافرون','النصر','المسد','الإخلاص','الفلق','الناس'];
-export default function App(){const[tab,setTab]=useState<Tab>('home');const[dark,setDark]=useState(()=>load('dark',false));const[chapter,setChapter]=useState<Chapter|null>(null);const[bookmark,setBookmark]=useState(()=>load('bookmark',{sura:1,ayah:1,name:'الفاتحة'}));const[goal,setGoal]=useState(()=>load('goal',30));const[done,setDone]=useState(()=>load('done',0));const[query,setQuery]=useState('');const[detail,setDetail]=useState<{sura:number;ayah:number;text:string}|null>(null);const[notifs,setNotifs]=useState(()=>load('notifs',{prayer:true,adhkar:true,wird:true,hadith:true}));useEffect(()=>{document.documentElement.dataset.theme=dark?'dark':'light';save('dark',dark)},[dark]);async function openSura(id:number){const x=await fetch(`./quran/${id}.json`).then(r=>r.json());setChapter(x)}async function schedule(){if(!Capacitor.isNativePlatform())return;const p=await LocalNotifications.requestPermissions();if(p.display!=='granted')return;const now=new Date(),list:any[]=[];if(notifs.prayer){for(let day=0;day<7;day++){const date=new Date(now);date.setDate(now.getDate()+day);const pt=new PrayerTimes(new Coordinates(24.4539,54.3773),date,CalculationMethod.Dubai());const ps=[['الفجر',pt.fajr],['الظهر',pt.dhuhr],['العصر',pt.asr],['المغرب',pt.maghrib],['العشاء',pt.isha]]as const;ps.forEach((x,j)=>{if(x[1]>now)list.push({id:4000+day*10+j,title:`حان وقت صلاة ${x[0]}`,body:'تقبل الله طاعتكم',schedule:{at:x[1],allowWhileIdle:true},channelId:'prayer'})})}}await LocalNotifications.createChannel({id:'prayer',name:'مواقيت الصلاة',importance:5});for(let i=1;i<=14;i++){const d=new Date(now);d.setDate(now.getDate()+i);if(notifs.wird){d.setHours(20,0,0,0);list.push({id:1000+i,title:'وردك اليومي',body:'خصص دقائق لورد القرآن اليوم',schedule:{at:new Date(d)},channelId:'reminders'})}if(notifs.adhkar){d.setHours(7,0,0,0);list.push({id:2000+i,title:'أذكار الصباح',body:'ابدأ يومك بذكر الله',schedule:{at:new Date(d)},channelId:'reminders'})}if(notifs.hadith){d.setHours(12,0,0,0);const h=hadiths[i%hadiths.length];list.push({id:3000+i,title:'حديث اليوم',body:h[0],schedule:{at:new Date(d)},channelId:'reminders'})}}await LocalNotifications.createChannel({id:'reminders',name:'التذكيرات اليومية',importance:4});await LocalNotifications.schedule({notifications:list});alert('تمت جدولة التذكيرات للأيام القادمة')}const daily=Math.ceil(604/goal),start=done*daily+1,end=Math.min(604,start+daily-1),progress=Math.min(100,Math.round(done/goal*100));const filtered=hadiths.filter(h=>(h[0]+h[1]+h[2]).toLowerCase().includes(query.toLowerCase()));return <div className="app"><header><div className="brand"><b>أ</b><span><strong>آفاق الإيمان</strong><small>رحلة إيمانية يومية</small></span></div><button className="round" onClick={()=>setDark(!dark)}>{dark?<Sun/>:<Moon/>}</button></header><main>{tab==='home'&&<><section className="hero"><div><small>ورد اليوم</small><h1>صفحة {start} إلى {end}</h1><p>خطة مرنة لختم القرآن خلال {goal} يوماً</p></div><div className="orb">{progress}%</div><button onClick={()=>{setDone(done+1);save('done',done+1)}}>تسجيل الإنجاز</button></section><section className="quick"><button onClick={()=>setTab('quran')}><BookOpen/>المصحف</button><button onClick={()=>setTab('hadith')}><Library/>الأحاديث</button><button onClick={()=>setTab('plan')}><CalendarDays/>الختمة</button></section><section className="glass"><small>آخر قراءة</small><h2>سورة {bookmark.name} • الآية {bookmark.ayah}</h2><button onClick={()=>{setTab('quran');openSura(bookmark.sura)}}>متابعة القراءة <ChevronLeft/></button></section><section className="glass"><small>حديث اليوم</small><blockquote>«{hadiths[new Date().getDate()%hadiths.length][0]}»</blockquote><em>{hadiths[new Date().getDate()%hadiths.length][2]}</em></section></>}{tab==='quran'&&<>{chapter?<Reader c={chapter} mark={(a,t)=>{const b={sura:chapter.id,ayah:a,name:chapter.name};setBookmark(b);save('bookmark',b);setDetail({sura:chapter.id,ayah:a,text:t})}} back={()=>setChapter(null)}/>:<><div className="title"><h1>القرآن الكريم</h1><p>نص محلي يعمل دون إنترنت</p></div><div className="suras">{suras.map((n,i)=><button onClick={()=>openSura(i+1)}><b>{i+1}</b><span>{n}<small>سورة رقم {i+1}</small></span><ChevronLeft/></button>)}</div></>}</>}{tab==='plan'&&<><div className="title"><h1>خطة الختمة</h1><p>خصص الخطة بما يناسب وقتك</p></div><section className="glass"><label>مدة الختمة<input type="range" min="7" max="365" value={goal} onChange={e=>{setGoal(+e.target.value);save('goal',+e.target.value)}}/></label><div className="planStats"><div><b>{goal}</b><span>يوماً</span></div><div><b>{daily}</b><span>صفحة يومياً</span></div><div><b>{progress}%</b><span>مكتمل</span></div></div><button className="primary" onClick={()=>{setDone(0);save('done',0)}}>بدء خطة جديدة</button></section></>}{tab==='hadith'&&<><div className="title"><h1>أحاديث الصحيحين</h1><p>تصفح وابحث بالكلمات المفتاحية</p></div><label className="search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="ابحث في نص الحديث أو المصدر"/></label>{filtered.map(h=><article className="hadith"><p>«{h[0]}»</p><small>{h[2]}</small></article>)}</>}{tab==='settings'&&<><div className="title"><h1>الإعدادات</h1></div><section className="glass settings"><label><Moon/>الوضع الليلي<input type="checkbox" checked={dark} onChange={()=>setDark(!dark)}/></label><h3>التحكم بالإشعارات</h3>{Object.entries(notifs).map(([k,v])=><label><Bell/>{k==='prayer'?'الصلاة':k==='adhkar'?'الأذكار':k==='wird'?'الورد اليومي':'حديث عشوائي'}<input type="checkbox" checked={v} onChange={()=>{const n={...notifs,[k]:!v};setNotifs(n);save('notifs',n)}}/></label>)}<button className="primary" onClick={schedule}>تفعيل وجدولة الإشعارات</button><button className="link"><Shield/>سياسة الخصوصية</button><button className="link"><Info/>حول البرنامج</button></section></>}</main><nav>{([['home',Home,'الرئيسية'],['quran',BookOpen,'القرآن'],['plan',CalendarDays,'الختمة'],['hadith',Library,'الأحاديث'],['settings',Settings,'المزيد']]as const).map(([k,I,l])=><button className={tab===k?'on':''} onClick={()=>{setTab(k);if(k!=='quran')setChapter(null)}}><I/><span>{l}</span></button>)}</nav>{detail&&<div className="modal"><div className="sheet"><button className="close" onClick={()=>setDetail(null)}><X/></button><Bookmark/><h2>حفظ موضع القراءة</h2><p>تم حفظ الآية {detail.ayah} من سورة {suras[detail.sura-1]}.</p><h3>شرح الآية</h3><p className="muted">التفسير وسبب النزول يحتاجان اتصالاً بمصدر تفسير معتمد. لم يتم توليد شرح آلي للنص القرآني.</p></div></div>}</div>}
-function Reader({c,mark,back}:{c:Chapter;mark:(a:number,t:string)=>void;back:()=>void}){return <><div className="readerHead"><button onClick={back}>×</button><div><h1>سورة {c.name}</h1><small>{c.total_verses} آيات</small></div></div><div className="verses">{c.verses.map(v=><article><button className="aya" onClick={()=>mark(v.id,v.text)}>{v.id}</button><p>{v.text} <span>﴿{v.id}﴾</span></p><button className="explain" onClick={()=>mark(v.id,v.text)}><Bookmark/> حفظ وشرح</button></article>)}</div></>}
+import React, { useEffect } from 'react';
+import { HashRouter, Routes, Route } from 'react-router-dom';
+import { App as CapacitorApp } from '@capacitor/app';
+import BottomNav from './components/BottomNav';
+import HomePage from './pages/HomePage';
+import QuranListPage from './pages/QuranListPage';
+import QuranReaderPage from './pages/QuranReaderPage';
+import KhatmaPage from './pages/KhatmaPage';
+import AzkarPage from './pages/AzkarPage';
+import HadithPage from './pages/HadithPage';
+import QiblaPage from './pages/QiblaPage';
+import SettingsPage from './pages/SettingsPage';
+import PrayerSettingsPage from './pages/PrayerSettingsPage';
+import NotificationSettingsPage from './pages/NotificationSettingsPage';
+import { useSettings } from './context/SettingsContext';
+import { useI18n } from './i18n';
+import { rescheduleAll, ensureNotificationChannel } from './services/notifications';
+
+const App: React.FC = () => {
+  const { prayerSettings, notificationSettings, loaded } = useSettings();
+  const { lang } = useI18n();
+
+  // Reschedule the rolling notification window whenever the app becomes active,
+  // and once settings finish loading on cold start. This is the app's mechanism
+  // for keeping upcoming days' notifications fresh (see services/notifications.ts
+  // for the documented limitation around long offline periods after a reboot).
+  useEffect(() => {
+    if (!loaded) return;
+    (async () => {
+      await ensureNotificationChannel();
+      await rescheduleAll(prayerSettings, notificationSettings, lang);
+    })();
+  }, [loaded]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const listener = CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+      if (isActive && loaded) {
+        void rescheduleAll(prayerSettings, notificationSettings, lang);
+      }
+    });
+    return () => {
+      listener.then((l) => l.remove());
+    };
+  }, [loaded, prayerSettings, notificationSettings, lang]);
+
+  return (
+    <HashRouter>
+      <div className="app-shell">
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/quran" element={<QuranListPage />} />
+          <Route path="/quran/khatma" element={<KhatmaPage />} />
+          <Route path="/quran/:number" element={<QuranReaderPage />} />
+          <Route path="/azkar" element={<AzkarPage />} />
+          <Route path="/hadith" element={<HadithPage />} />
+          <Route path="/qibla" element={<QiblaPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/settings/prayer" element={<PrayerSettingsPage />} />
+          <Route path="/settings/notifications" element={<NotificationSettingsPage />} />
+        </Routes>
+        <BottomNav />
+      </div>
+    </HashRouter>
+  );
+};
+
+export default App;
