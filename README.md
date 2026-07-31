@@ -1,9 +1,8 @@
-# آفاق الإيمان | Afaq Al-Iman
+# آفاق الإيمان v1.1
+واجهة محسنة مع Status Bar آمن، بوصلة قبلة محسنة، دعم العربية والإنجليزية، وAndroid SDK 36.
 
-تطبيق إسلامي ثنائي اللغة مبني بـ React + TypeScript + Capacitor Android.
+## البناء
+ارفع الملفات إلى فرع main ثم شغّل Build Android Debug APK من Actions.
 
-## GitHub Actions
-ارفع المحتويات إلى الفرع main، ثم افتح Actions وشغّل Build Android Debug APK. ستجد APK داخل Artifacts باسم `afaq-al-iman-debug-apk`.
-
-## Package
-`com.afaq.iman`
+## ملاحظة مواقيت البيان
+واجهة التطبيق جاهزة لعرض مصدر البيان داخل الإمارات مع حساب Adhan المحلي كخيار احتياطي. الربط المباشر النهائي يحتاج API وسيط مصرح به لأن صفحة الويب ليست API عامة وقد تمنع CORS أو يتغير HTML.
