@@ -1,3 +1,4 @@
+import QuranExperience from "./QuranExperience";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { App as NativeApp } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
@@ -427,39 +428,8 @@ export default function App() {
             </section>
           </>
         )}
-        {tab === "quran" &&
-          (chapter ? (
-            <Reader
-              c={chapter}
-              font={font}
-              setFont={setFont}
-              marks={marks}
-              toggle={(id) => {
-                const k = `${chapter.id}:${id}`,
-                  n = { ...marks, [k]: !marks[k] };
-                setMarks(n);
-                save("bookmarks", n);
-              }}
-              back={() => setChapter(null)}
-            />
-          ) : (
-            <>
-              <Hero
-                image={images.quran}
-                title="القرآن الكريم"
-                sub="قراءة متصلة بخط قرآني محلي"
-              />
-              <div className="suras">
-                {Array.from({ length: 114 }, (_, i) => (
-                  <button key={i} onClick={() => void openSura(i + 1)}>
-                    <b>{i + 1}</b>
-                    <span>سورة رقم {i + 1}</span>
-                    <ChevronLeft />
-                  </button>
-                ))}
-              </div>
-            </>
-          ))}
+        {tab === "quran" && <QuranExperience />}
+
         {tab === "adhkar" && (
           <>
             <Hero
