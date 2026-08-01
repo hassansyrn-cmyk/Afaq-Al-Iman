@@ -1,14 +1,14 @@
 @font-face {
-  font-family: "QPC Hafs V22";
-  src: url("https://static-cdn.tarteel.ai/qul/fonts/UthmanicHafs_V22.ttf") format("truetype");
+  font-family: "Amiri Quran Local";
+  src: url("/fonts/amiri-quran-arabic.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 .mushafPage,
 .mushafPage .verse {
-  font-family: "QPC Hafs V22", "Amiri Quran", "Noto Naskh Arabic", "Noto Sans Arabic", serif;
+  font-family: "Amiri Quran Local", "Amiri Quran", "Noto Naskh Arabic", serif;
   direction: rtl;
   unicode-bidi: isolate;
   font-variant-ligatures: common-ligatures;
