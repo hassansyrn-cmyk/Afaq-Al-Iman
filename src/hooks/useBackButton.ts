@@ -14,6 +14,7 @@ export function useBackButton(getState: () => BackStackState, actions: {
   closeHadithDetail: () => void;
   closeSura: () => void;
   closeBookmarksList: () => void;
+  closeAdhkar: () => void;
   goHome: () => void;
 }) {
   const actionsRef = useRef(actions);
@@ -43,6 +44,9 @@ export function useBackButton(getState: () => BackStackState, actions: {
           break;
         case 'closeBookmarksList':
           actionsRef.current.closeBookmarksList();
+          break;
+        case 'closeAdhkar':
+          actionsRef.current.closeAdhkar();
           break;
         case 'goHome':
           actionsRef.current.goHome();

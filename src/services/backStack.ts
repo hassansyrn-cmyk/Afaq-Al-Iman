@@ -15,6 +15,7 @@ export interface BackStackState {
   isHadithDetailOpen: boolean;
   isSuraOpen: boolean;
   isBookmarksListOpen: boolean;
+  isAdhkarOpen: boolean;
   activeTab: Tab;
 }
 
@@ -23,6 +24,7 @@ export type BackAction =
   | { type: 'closeHadithDetail' }
   | { type: 'closeSura' }
   | { type: 'closeBookmarksList' }
+  | { type: 'closeAdhkar' }
   | { type: 'goHome' }
   | { type: 'exitApp' };
 
@@ -31,6 +33,7 @@ export function resolveBackAction(state: BackStackState): BackAction {
   if (state.isHadithDetailOpen) return { type: 'closeHadithDetail' };
   if (state.isSuraOpen) return { type: 'closeSura' };
   if (state.isBookmarksListOpen) return { type: 'closeBookmarksList' };
+  if (state.isAdhkarOpen) return { type: 'closeAdhkar' };
   if (state.activeTab !== 'home') return { type: 'goHome' };
   return { type: 'exitApp' };
 }

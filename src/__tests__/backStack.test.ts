@@ -6,6 +6,7 @@ const base: BackStackState = {
   isHadithDetailOpen: false,
   isSuraOpen: false,
   isBookmarksListOpen: false,
+  isAdhkarOpen: false,
   activeTab: 'home',
 };
 
@@ -28,6 +29,11 @@ describe('resolveBackAction', () => {
   it('closes the bookmarks list back to the Quran tab', () => {
     const state: BackStackState = { ...base, isBookmarksListOpen: true, activeTab: 'quran' };
     expect(resolveBackAction(state)).toEqual({ type: 'closeBookmarksList' });
+  });
+
+  it('closes the adhkar screen back to home', () => {
+    const state: BackStackState = { ...base, isAdhkarOpen: true, activeTab: 'home' };
+    expect(resolveBackAction(state)).toEqual({ type: 'closeAdhkar' });
   });
 
   it('returns to home from any non-home tab with nothing else open', () => {

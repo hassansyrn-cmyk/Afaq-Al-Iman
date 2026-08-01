@@ -71,3 +71,19 @@ html[data-theme=dark] .quran-page{background:var(--card)}
 
 .notif-prefs{display:flex;flex-direction:column;gap:8px;margin:12px 0}
 .notif-pref-row{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text)}
+
+.adhkar-focus{display:flex;flex-direction:column;align-items:center;gap:14px;padding:20px 0}
+.adhkar-progress-label{color:var(--muted);font-size:13px}
+.adhkar-tap-circle{width:220px;height:220px;border-radius:50%;border:2px solid var(--green);background:radial-gradient(circle,var(--card),transparent 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:pointer;user-select:none}
+.adhkar-tap-circle:active{transform:scale(.97)}
+.adhkar-text{font-size:20px;color:var(--text);text-align:center;padding:0 16px}
+.adhkar-count{font-size:32px;font-weight:bold;color:var(--green)}
+.adhkar-count small{font-size:16px;color:var(--muted);font-weight:normal}
+.adhkar-sequence-dots{display:flex;gap:6px}
+.adhkar-sequence-dots .dot{width:8px;height:8px;border-radius:50%;background:var(--line)}
+.adhkar-sequence-dots .dot.on{background:var(--green)}
+.adhkar-sequence-dots .dot.done{background:var(--gold)}
+.adhkar-free-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.adhkar-free-card{display:flex;flex-direction:column;align-items:center;gap:8px;padding:18px 8px;border-radius:18px;background:var(--card);border:1px solid var(--line);cursor:pointer}
+.adhkar-free-card:active{transform:scale(.97)}
+.adhkar-free-card .adhkar-count{font-size:24px}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Home, BookOpen, Library, Settings as SettingsIcon, Moon, Sun, CalendarDays, Compass } from 'lucide-react';
+import { Home, BookOpen, Library, Settings as SettingsIcon, Moon, Sun, CalendarDays, Compass, Sparkles } from 'lucide-react';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
@@ -21,6 +21,7 @@ import { HadithDetail } from './features/hadith/HadithDetail';
 import { hadithRepository } from './repositories/hadith/hadithRepositoryInstance';
 import { DailyHadithService } from './repositories/hadith/DailyHadithService';
 import { QiblaCompass } from './features/qibla/QiblaCompass';
+import { AdhkarScreen } from './features/adhkar/AdhkarScreen';
 import { SettingsPage, type SettingsSheet } from './features/settings/SettingsPage';
 import {
   NotificationOnboarding,
@@ -41,6 +42,7 @@ export default function App() {
   const [chapter, setChapter] = useState<Chapter | null>(null);
   const [chapters, setChapters] = useState<ChapterMeta[]>([]);
   const [bookmarksListOpen, setBookmarksListOpen] = useState(false);
+  const [adhkarOpen, setAdhkarOpen] = useState(false);
   const [hadithDetailId, setHadithDetailId] = useState<string | null>(null);
   const [tafsirAyah, setTafsirAyah] = useState<number | null>(null);
   const [settingsSheet, setSettingsSheet] = useState<SettingsSheet>(null);
@@ -94,6 +96,7 @@ export default function App() {
       isHadithDetailOpen: hadithDetailId != null,
       isSuraOpen: chapter != null,
       isBookmarksListOpen: bookmarksListOpen,
+      isAdhkarOpen: adhkarOpen,
       activeTab: tab,
     };
   }
@@ -109,6 +112,7 @@ export default function App() {
       setTafsirAyah(null);
     },
     closeBookmarksList: () => setBookmarksListOpen(false),
+    closeAdhkar: () => setAdhkarOpen(false),
     goHome: () => setTab('home'),
   });
 
@@ -234,6 +238,10 @@ export default function App() {
       </header>
 
       <main>
+        {adhkarOpen ? (
+          <AdhkarScreen onBack={() => setAdhkarOpen(false)} />
+        ) : (
+          <>
         {tab === 'home' && (
           <>
             <section className="hero">
@@ -255,6 +263,9 @@ export default function App() {
               </button>
               <button onClick={() => setTab('qibla')}>
                 <Compass /> القبلة
+              </button>
+              <button onClick={() => setAdhkarOpen(true)}>
+                <Sparkles /> الأذكار
               </button>
             </section>
 
@@ -342,6 +353,8 @@ export default function App() {
                 تفعيل وجدولة كل التذكيرات
               </button>
             </section>
+          </>
+        )}
           </>
         )}
       </main>

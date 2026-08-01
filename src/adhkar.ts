@@ -1,1 +1,0 @@
-export const adhkar=[['subhanallah','سبحان الله',33],['alhamdulillah','الحمد لله',33],['allahu-akbar','الله أكبر',33],['subhanallah-bihamdih','سبحان الله وبحمده',100],['tahlil','لا إله إلا الله وحده لا شريك له، له الملك وله الحمد، وهو على كل شيء قدير',100],['istighfar','أستغفر الله وأتوب إليه',100]]as const;

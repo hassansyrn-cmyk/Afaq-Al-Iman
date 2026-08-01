@@ -1,1 +1,0 @@
-import{registerPlugin}from'@capacitor/core';export interface PrayerWidgetPlugin{update(options:{prayer:string;city:string;target:number}):Promise<void>}export const PrayerWidget=registerPlugin<PrayerWidgetPlugin>('PrayerWidget');
