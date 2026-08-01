@@ -3,6 +3,7 @@ package com.afaq.iman;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -32,14 +33,12 @@ public class PrayerWidgetProvider extends AppWidgetProvider {
         AppWidgetManager manager =
             AppWidgetManager.getInstance(context);
 
-        android.content.ComponentName componentName =
-            new android.content.ComponentName(
+        int[] widgetIds = manager.getAppWidgetIds(
+            new ComponentName(
                 context,
                 PrayerWidgetProvider.class
-            );
-
-        int[] widgetIds =
-            manager.getAppWidgetIds(componentName);
+            )
+        );
 
         updateAll(context, widgetIds);
     }
@@ -54,48 +53,54 @@ public class PrayerWidgetProvider extends AppWidgetProvider {
                 Context.MODE_PRIVATE
             );
 
-        String prayerName =
-            preferences.getString(
-                "prayer",
-                "افتح التطبيق للتحديث"
-            );
+        String prayerName = preferences.getString(
+            "prayer",
+            "افتح التطبيق للتحديث"
+        );
 
-        String cityName =
-            preferences.getString(
-                "city",
-                "آفاق الإيمان"
-            );
+        String cityName = preferences.getString(
+            "city",
+            "آفاق الإيمان"
+        );
 
-        long targetTime =
-            preferences.getLong(
-                "target",
-                System.currentTimeMillis()
-            );
+        long targetTime = preferences.getLong(
+            "target",
+            System.currentTimeMillis()
+        );
 
-        String prayerTime =
-            DateFormat.getTimeFormat(context)
-                .format(new Date(targetTime));
-
-        long remainingMilliseconds =
-            Math.max(
-                0L,
-                targetTime - System.currentTimeMillis()
-            );
+        long remainingMilliseconds = Math.max(
+            0L,
+            targetTime - System.currentTimeMillis()
+        );
 
         long chronometerBase =
             SystemClock.elapsedRealtime()
                 + remainingMilliseconds;
 
+        String currentTime =
+            DateFormat.getTimeFormat(context).format(
+                new Date()
+            );
+
+        String prayerTime =
+            DateFormat.getTimeFormat(context).format(
+                new Date(targetTime)
+            );
+
         for (int widgetId : appWidgetIds) {
-            RemoteViews views =
-                new RemoteViews(
-                    context.getPackageName(),
-                    R.layout.widget_prayer
-                );
+            RemoteViews views = new RemoteViews(
+                context.getPackageName(),
+                R.layout.widget_prayer
+            );
 
             views.setTextViewText(
                 R.id.widget_city,
                 cityName
+            );
+
+            views.setTextViewText(
+                R.id.widget_current_time,
+                currentTime
             );
 
             views.setTextViewText(
@@ -115,11 +120,10 @@ public class PrayerWidgetProvider extends AppWidgetProvider {
                 true
             );
 
-            Intent openApplication =
-                new Intent(
-                    context,
-                    MainActivity.class
-                );
+            Intent openApplication = new Intent(
+                context,
+                MainActivity.class
+            );
 
             openApplication.setFlags(
                 Intent.FLAG_ACTIVITY_NEW_TASK
@@ -129,7 +133,7 @@ public class PrayerWidgetProvider extends AppWidgetProvider {
             PendingIntent pendingIntent =
                 PendingIntent.getActivity(
                     context,
-                    100,
+                    widgetId,
                     openApplication,
                     PendingIntent.FLAG_UPDATE_CURRENT
                         | PendingIntent.FLAG_IMMUTABLE
