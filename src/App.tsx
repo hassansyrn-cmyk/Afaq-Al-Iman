@@ -21,6 +21,9 @@ import {
   Moon,
   Sun,
   Bell,
+  Languages,
+  Volume2,
+  Vibrate,
   Shield,
   Info,
   Bookmark,
@@ -42,6 +45,28 @@ type Chapter = {
   name: string;
   total_verses: number;
   verses: { id: number; text: string }[];
+};
+type NotificationSettings = {
+  prayers: boolean;
+  prePrayerMinutes: number;
+  morningAdhkar: boolean;
+  eveningAdhkar: boolean;
+  dailyWird: boolean;
+  khatma: boolean;
+  dailyHadith: boolean;
+  sound: boolean;
+  vibration: boolean;
+};
+const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
+  prayers: true,
+  prePrayerMinutes: 0,
+  morningAdhkar: true,
+  eveningAdhkar: true,
+  dailyWird: true,
+  khatma: true,
+  dailyHadith: true,
+  sound: true,
+  vibration: true,
 };
 type KhatmaState = {
   goalDays: number;
@@ -158,7 +183,26 @@ export default function App() {
     [prompt, setPrompt] = useState(() => !load("notification-intro", false)),
     [modal, setModal] = useState<"privacy" | "about" | null>(null),
     [remaining, setRemaining] = useState(""),
-    [khatma, setKhatma] = useState<KhatmaState>(loadKhatma);
+    [khatma, setKhatma] = useState<KhatmaState>(loadKhatma),
+    [clock, setClock] = useState(() => Date.now()),
+    [quranReaderOpen, setQuranReaderOpen] = useState(false),
+    [lang, setLang] = useState<"ar" | "en">(() => load("language", "ar")),
+    [notificationSettings, setNotificationSettings] =
+      useState<NotificationSettings>(() =>
+        load("notification-settings", DEFAULT_NOTIFICATION_SETTINGS),
+      ),
+    [notificationStatus, setNotificationStatus] = useState("");
+  const en = lang === "en";
+  const tr = (ar: string, english: string) => (en ? english : ar);
+  useEffect(() => {
+    document.documentElement.lang = lang;
+    document.documentElement.dir = en ? "ltr" : "rtl";
+    save("language", lang);
+  }, [lang, en]);
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
   useEffect(() => {
     document.documentElement.dataset.theme = dark ? "dark" : "light";
     save("dark", dark);
@@ -173,7 +217,7 @@ export default function App() {
   const times = useMemo(() => {
     const p = new PrayerTimes(
       new Coordinates(city.lat, city.lng),
-      new Date(),
+      new Date(clock),
       method(city),
     );
     return [
@@ -184,11 +228,12 @@ export default function App() {
       ["maghrib", "المغرب", p.maghrib],
       ["isha", "العشاء", p.isha],
     ] as const;
-  }, [city]);
+  }, [city, new Date(clock).toDateString()]);
   const next = useMemo(() => {
-    const n = times.find((x) => x[2] > new Date());
+    const now = new Date(clock);
+    const n = times.find((x) => x[2].getTime() > now.getTime());
     if (n) return n;
-    const d = new Date();
+    const d = new Date(clock);
     d.setDate(d.getDate() + 1);
     const p = new PrayerTimes(
       new Coordinates(city.lat, city.lng),
@@ -196,27 +241,75 @@ export default function App() {
       method(city),
     );
     return ["fajr", "الفجر", p.fajr] as const;
-  }, [times, city]);
+  }, [times, city, clock]);
   useEffect(() => {
-    const tick = () => {
-      const ms = Math.max(0, next[2].getTime() - Date.now()),
-        h = Math.floor(ms / 3600000),
-        m = Math.floor((ms % 3600000) / 60000),
-        s = Math.floor((ms % 60000) / 1000);
-      setRemaining(
-        `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`,
-      );
-    };
-    tick();
-    const timer = setInterval(tick, 1000);
+    const ms = Math.max(0, next[2].getTime() - clock);
+    const h = Math.floor(ms / 3600000),
+      m = Math.floor((ms % 3600000) / 60000),
+      sec = Math.floor((ms % 60000) / 1000);
+    setRemaining(
+      `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`,
+    );
+  }, [clock, next]);
+  useEffect(() => {
     if (Capacitor.isNativePlatform())
       void PrayerWidget.update({
-        prayer: next[1],
-        city: city.ar,
+        schedule: Array.from({ length: 3 }, (_, day) => {
+          const date = new Date(clock);
+          date.setDate(date.getDate() + day);
+          const p = new PrayerTimes(
+            new Coordinates(city.lat, city.lng),
+            date,
+            method(city),
+          );
+          return [
+            ["fajr", p.fajr],
+            ["dhuhr", p.dhuhr],
+            ["asr", p.asr],
+            ["maghrib", p.maghrib],
+            ["isha", p.isha],
+          ] as const;
+        })
+          .flat()
+          .filter((item) => item[1].getTime() > Date.now())
+          .map((item) => ({
+            prayer: en
+              ? (
+                  {
+                    fajr: "Fajr",
+                    dhuhr: "Dhuhr",
+                    asr: "Asr",
+                    maghrib: "Maghrib",
+                    isha: "Isha",
+                  } as Record<string, string>
+                )[item[0]]
+              : (
+                  {
+                    fajr: "الفجر",
+                    dhuhr: "الظهر",
+                    asr: "العصر",
+                    maghrib: "المغرب",
+                    isha: "العشاء",
+                  } as Record<string, string>
+                )[item[0]],
+            target: item[1].getTime(),
+          })),
+        prayer: en
+          ? (
+              {
+                fajr: "Fajr",
+                dhuhr: "Dhuhr",
+                asr: "Asr",
+                maghrib: "Maghrib",
+                isha: "Isha",
+                sunrise: "Sunrise",
+              } as Record<string, string>
+            )[next[0]]
+          : next[1],
+        city: en ? city.en : city.ar,
         target: next[2].getTime(),
       }).catch(() => undefined);
-    return () => clearInterval(timer);
-  }, [next, city]);
+  }, [next[0], next[2].getTime(), city.id, lang]);
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
     let remove: (() => void) | undefined;
@@ -224,6 +317,8 @@ export default function App() {
       if (prompt) setPrompt(false);
       else if (modal) setModal(null);
       else if (picker) setPicker(false);
+      else if (tab === "quran" && quranReaderOpen)
+        window.dispatchEvent(new Event("afaq-quran-back"));
       else if (chapter) setChapter(null);
       else if (more !== "menu") setMore("menu");
       else if (tab !== "home") {
@@ -232,31 +327,130 @@ export default function App() {
       } else void NativeApp.exitApp();
     }).then((h) => (remove = () => void h.remove()));
     return () => remove?.();
-  }, [prompt, modal, picker, chapter, tab, more]);
+  }, [prompt, modal, picker, chapter, tab, more, quranReaderOpen]);
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    let remove: (() => void) | undefined;
+    void NativeApp.addListener("appStateChange", ({ isActive }) => {
+      if (isActive) {
+        setClock(Date.now());
+        void verifyNotificationStatus();
+      }
+    }).then((h) => (remove = () => void h.remove()));
+    return () => remove?.();
+  }, [city, notificationSettings]);
+  async function verifyNotificationStatus() {
+    if (!Capacitor.isNativePlatform()) return;
+    const permission = await LocalNotifications.checkPermissions();
+    let exact = "granted";
+    try {
+      exact = (
+        await (LocalNotifications as any).checkExactNotificationSetting()
+      ).exact_alarm;
+    } catch {}
+    setNotificationStatus(
+      permission.display === "granted"
+        ? exact === "granted"
+          ? tr(
+              "الإشعارات مفعلة بدقة",
+              "Notifications and exact alarms are enabled",
+            )
+          : tr(
+              "الإشعارات مفعلة، لكن التنبيه الدقيق يحتاج سماحًا",
+              "Notifications enabled, exact alarms need permission",
+            )
+        : tr("إذن الإشعارات غير مفعل", "Notification permission is disabled"),
+    );
+  }
+  async function openExactAlarmSettings() {
+    try {
+      await (LocalNotifications as any).changeExactNotificationSetting();
+    } catch {}
+  }
+  async function sendTestNotification() {
+    if (!Capacitor.isNativePlatform()) return;
+    const permission = await LocalNotifications.requestPermissions();
+    if (permission.display !== "granted") {
+      setNotificationStatus(
+        tr("لم يتم منح الإذن", "Permission was not granted"),
+      );
+      return;
+    }
+    await LocalNotifications.createChannel({
+      id: "afaq-test",
+      name: tr("اختبار الإشعارات", "Notification test"),
+      importance: 5,
+      vibration: true,
+    } as any);
+    await LocalNotifications.schedule({
+      notifications: [
+        {
+          id: 909090,
+          title: tr("اختبار آفاق الإيمان", "Afaq Al-Iman test"),
+          body: tr("الإشعارات تعمل بنجاح", "Notifications are working"),
+          schedule: { at: new Date(Date.now() + 5000), allowWhileIdle: true },
+          channelId: "afaq-test",
+        },
+      ],
+    });
+    setNotificationStatus(
+      tr(
+        "سيصل إشعار تجريبي خلال 5 ثوانٍ",
+        "A test notification will arrive in 5 seconds",
+      ),
+    );
+  }
+  function updateNotificationSetting<K extends keyof NotificationSettings>(
+    key: K,
+    value: NotificationSettings[K],
+  ) {
+    const updated = { ...notificationSettings, [key]: value };
+    setNotificationSettings(updated);
+    save("notification-settings", updated);
+  }
   const fmt = (d: Date) =>
-    d.toLocaleTimeString("ar-AE", { hour: "2-digit", minute: "2-digit" });
+    d.toLocaleTimeString(en ? "en-US" : "ar-AE", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   async function askNotifications() {
     save("notification-intro", true);
     setPrompt(false);
     if (!Capacitor.isNativePlatform()) return;
     const p = await LocalNotifications.requestPermissions();
-    if (p.display === "granted") await scheduleNotifications();
+    if (p.display === "granted") {
+      try {
+        const exact = await (
+          LocalNotifications as any
+        ).checkExactNotificationSetting();
+        if (exact.exact_alarm !== "granted")
+          await (LocalNotifications as any).changeExactNotificationSetting();
+      } catch {}
+      await scheduleNotifications();
+      await verifyNotificationStatus();
+    }
   }
   async function scheduleNotifications() {
     if (!Capacitor.isNativePlatform()) return;
     const old = await LocalNotifications.getPending();
     if (old.notifications.length)
       await LocalNotifications.cancel({ notifications: old.notifications });
+    const prayerChannel = `prayer-${notificationSettings.sound ? "sound" : "silent"}-${notificationSettings.vibration ? "vibrate" : "quiet"}`;
+    const reminderChannel = `reminders-${notificationSettings.sound ? "sound" : "silent"}-${notificationSettings.vibration ? "vibrate" : "quiet"}`;
     await LocalNotifications.createChannel({
-      id: "prayer",
-      name: "مواقيت الصلاة",
+      id: prayerChannel,
+      name: tr("مواقيت الصلاة", "Prayer times"),
       importance: 5,
-    });
+      vibration: notificationSettings.vibration,
+      sound: notificationSettings.sound ? undefined : null,
+    } as any);
     await LocalNotifications.createChannel({
-      id: "reminders",
-      name: "التذكيرات",
+      id: reminderChannel,
+      name: tr("التذكيرات", "Reminders"),
       importance: 4,
-    });
+      vibration: notificationSettings.vibration,
+      sound: notificationSettings.sound ? undefined : null,
+    } as any);
     const now = new Date(),
       list: any[] = [];
     for (let day = 0; day < 14; day++) {
@@ -274,45 +468,65 @@ export default function App() {
         ["المغرب", p.maghrib],
         ["العشاء", p.isha],
       ].forEach((x, i) => {
-        if ((x[1] as Date) > now)
+        if (!notificationSettings.prayers) return;
+        const prayerAt = new Date(
+          (x[1] as Date).getTime() -
+            notificationSettings.prePrayerMinutes * 60000,
+        );
+        if (prayerAt > now)
           list.push({
             id: 4000 + day * 10 + i,
-            title: `حان وقت صلاة ${x[0]}`,
-            body: city.ar,
-            schedule: { at: x[1], allowWhileIdle: true },
-            channelId: "prayer",
+            title: notificationSettings.prePrayerMinutes
+              ? tr(
+                  `تبقى ${notificationSettings.prePrayerMinutes} دقيقة لصلاة ${x[0]}`,
+                  `${notificationSettings.prePrayerMinutes} minutes until prayer`,
+                )
+              : tr(`حان وقت صلاة ${x[0]}`, `It is time for prayer`),
+            body: en ? city.en : city.ar,
+            schedule: { at: prayerAt, allowWhileIdle: true },
+            channelId: prayerChannel,
           });
       });
       const a = new Date(d);
       a.setHours(7, 0, 0, 0);
-      if (a > now)
+      if (notificationSettings.morningAdhkar && a > now)
         list.push({
           id: 2000 + day,
           title: "أذكار الصباح",
           body: "ابدأ يومك بذكر الله",
           schedule: { at: a },
-          channelId: "reminders",
+          channelId: reminderChannel,
+        });
+      const evening = new Date(d);
+      evening.setHours(18, 0, 0, 0);
+      if (notificationSettings.eveningAdhkar && evening > now)
+        list.push({
+          id: 2500 + day,
+          title: tr("أذكار المساء", "Evening Adhkar"),
+          body: tr("اختم يومك بذكر الله", "End your day with remembrance"),
+          schedule: { at: evening, allowWhileIdle: true },
+          channelId: reminderChannel,
         });
       const w = new Date(d);
       w.setHours(20, 0, 0, 0);
-      if (w > now)
+      if (notificationSettings.dailyWird && w > now)
         list.push({
           id: 1000 + day,
           title: "وردك اليومي",
           body: "خصص دقائق لورد القرآن",
           schedule: { at: w },
-          channelId: "reminders",
+          channelId: reminderChannel,
         });
       const h = new Date(d);
       h.setHours(12, 0, 0, 0);
-      if (h > now) {
+      if (notificationSettings.dailyHadith && h > now) {
         const item = hadiths[(day + new Date().getDate()) % hadiths.length];
         list.push({
           id: 3000 + day,
           title: "حديث اليوم",
           body: `${item[0]} — ${item[2]}`,
           schedule: { at: h },
-          channelId: "reminders",
+          channelId: reminderChannel,
         });
       }
     }
@@ -335,16 +549,28 @@ export default function App() {
     ),
     ks = metrics(khatma);
   return (
-    <div className="app">
+    <div className="app" dir={en ? "ltr" : "rtl"}>
       <header>
         <div className="brand">
-          <b>أ</b>
+          <b className="brandIcon">
+            <img src="./icon.png" alt="Afaq Al-Iman" />
+          </b>
           <span>
-            <strong>آفاق الإيمان</strong>
-            <small onClick={() => setPicker(true)}>{city.ar}</small>
+            <strong>{tr("آفاق الإيمان", "Afaq Al-Iman")}</strong>
+            <small onClick={() => setPicker(true)}>
+              {en ? city.en : city.ar}
+            </small>
           </span>
         </div>
         <div className="headBtns">
+          <button
+            className="languageButton"
+            onClick={() => setLang(en ? "ar" : "en")}
+            aria-label="Language"
+          >
+            <Languages />
+            <small>{en ? "AR" : "EN"}</small>
+          </button>
           <button onClick={() => setPicker(true)}>
             <MapPin />
           </button>
@@ -362,21 +588,47 @@ export default function App() {
                 backgroundImage: `linear-gradient(90deg,#021c17ed,#04312835),url('${images[next[0]]}')`,
               }}
             >
-              <span>الصلاة القادمة</span>
-              <h1>{next[1]}</h1>
+              <span>{tr("الصلاة القادمة", "Next prayer")}</span>
+              <h1>
+                {en
+                  ? (
+                      {
+                        fajr: "Fajr",
+                        sunrise: "Sunrise",
+                        dhuhr: "Dhuhr",
+                        asr: "Asr",
+                        maghrib: "Maghrib",
+                        isha: "Isha",
+                      } as Record<string, string>
+                    )[next[0]]
+                  : next[1]}
+              </h1>
               <strong>{fmt(next[2])}</strong>
               <div className="countdown">
-                <small>متبقي</small>
+                <small>{tr("متبقي", "Remaining")}</small>
                 <b>{remaining}</b>
               </div>
               <p>
-                <MapPin /> {city.ar}
+                <MapPin /> {en ? city.en : city.ar}
               </p>
             </section>
             <section className="prayerGrid">
               {times.map((x) => (
                 <div className={x[0] === next[0] ? "active" : ""} key={x[0]}>
-                  <span>{x[1]}</span>
+                  <span>
+                    {en
+                      ? (
+                          {
+                            fajr: "Fajr",
+                            sunrise: "Sunrise",
+                            dhuhr: "Dhuhr",
+                            asr: "Asr",
+                            maghrib: "Maghrib",
+                            isha: "Isha",
+                          } as Record<string, string>
+                        )[x[0]]
+                      : x[1]}
+                  </span>
                   <b>{fmt(x[2])}</b>
                 </div>
               ))}
@@ -384,35 +636,38 @@ export default function App() {
             <section className="quick">
               <button onClick={() => go("quran")}>
                 <BookOpen />
-                القرآن
+                {tr("القرآن", "Quran")}
               </button>
               <button onClick={() => go("adhkar")}>
                 <Heart />
-                الأذكار
+                {tr("الأذكار", "Adhkar")}
               </button>
               <button onClick={() => go("khatma")}>
                 <CalendarDays />
-                الختمة
+                {tr("الختمة", "Khatma")}
               </button>
             </section>
             <section className="glass homeKhatmaCard">
               <div className="homeKhatmaHeader">
                 <div>
-                  <small>خطة الختمة</small>
+                  <small>{tr("خطة الختمة", "Khatma plan")}</small>
                   <h2>
-                    ورد اليوم: صفحة {ks.startPage} إلى {ks.endPage}
+                    {tr("ورد اليوم: صفحة", "Today: pages")} {ks.startPage}{" "}
+                    {tr("إلى", "to")} {ks.endPage}
                   </h2>
-                  <p>{ks.pagesPerDay} صفحة يوميًا</p>
+                  <p>
+                    {ks.pagesPerDay} {tr("صفحة يوميًا", "pages daily")}
+                  </p>
                 </div>
                 <div className="homeKhatmaProgress">{ks.progress}%</div>
               </div>
               <button className="primary" onClick={() => go("khatma")}>
                 <CalendarDays />
-                فتح خطة الختمة
+                {tr("فتح خطة الختمة", "Open Khatma plan")}
               </button>
             </section>
             <section className="glass">
-              <small>حديث عشوائي</small>
+              <small>{tr("حديث عشوائي", "Random Hadith")}</small>
               <blockquote>
                 «{hadiths[new Date().getDate() % hadiths.length][0]}»
               </blockquote>
@@ -423,12 +678,17 @@ export default function App() {
                   setMore("hadith");
                 }}
               >
-                فتح المكتبة
+                {tr("فتح المكتبة", "Open library")}
               </button>
             </section>
           </>
         )}
-        {tab === "quran" && <QuranExperience />}
+        {tab === "quran" && (
+          <QuranExperience
+            lang={lang}
+            onReaderStateChange={setQuranReaderOpen}
+          />
+        )}
 
         {tab === "adhkar" && (
           <>
@@ -498,7 +758,7 @@ export default function App() {
         )}
         {tab === "more" && more === "menu" && (
           <>
-            <h1>المزيد</h1>
+            <h1>{tr("المزيد", "More")}</h1>
             <div className="menuGrid">
               <button onClick={() => setMore("qibla")}>
                 <Compass />
@@ -555,28 +815,163 @@ export default function App() {
         )}
         {tab === "more" && more === "settings" && (
           <>
-            <h1>الإعدادات</h1>
+            <h1>{tr("الإعدادات", "Settings")}</h1>
             <section className="glass settings">
               <label>
                 <Moon />
-                الوضع الليلي
+                {tr("الوضع الليلي", "Dark mode")}
                 <input
                   type="checkbox"
                   checked={dark}
                   onChange={() => setDark(!dark)}
                 />
               </label>
-              <button className="primary" onClick={scheduleNotifications}>
+              <label>
+                <Languages />
+                {tr("اللغة", "Language")}
+                <select
+                  value={lang}
+                  onChange={(e) => setLang(e.target.value as "ar" | "en")}
+                >
+                  <option value="ar">العربية</option>
+                  <option value="en">English</option>
+                </select>
+              </label>
+              <div className="notificationSettingsPanel">
+                <h2>{tr("تخصيص الإشعارات", "Notification preferences")}</h2>
+                <label>
+                  <Bell />
+                  {tr("تنبيهات الصلوات", "Prayer alerts")}
+                  <input
+                    type="checkbox"
+                    checked={notificationSettings.prayers}
+                    onChange={(e) =>
+                      updateNotificationSetting("prayers", e.target.checked)
+                    }
+                  />
+                </label>
+                <label>
+                  <Bell />
+                  {tr("التذكير قبل الصلاة", "Remind before prayer")}
+                  <select
+                    value={notificationSettings.prePrayerMinutes}
+                    onChange={(e) =>
+                      updateNotificationSetting(
+                        "prePrayerMinutes",
+                        Number(e.target.value),
+                      )
+                    }
+                  >
+                    <option value="0">
+                      {tr("عند الوقت", "At prayer time")}
+                    </option>
+                    <option value="5">5</option>
+                    <option value="10">10</option>
+                    <option value="15">15</option>
+                    <option value="30">30</option>
+                  </select>
+                </label>
+                <label>
+                  <Heart />
+                  {tr("أذكار الصباح", "Morning Adhkar")}
+                  <input
+                    type="checkbox"
+                    checked={notificationSettings.morningAdhkar}
+                    onChange={(e) =>
+                      updateNotificationSetting(
+                        "morningAdhkar",
+                        e.target.checked,
+                      )
+                    }
+                  />
+                </label>
+                <label>
+                  <Heart />
+                  {tr("أذكار المساء", "Evening Adhkar")}
+                  <input
+                    type="checkbox"
+                    checked={notificationSettings.eveningAdhkar}
+                    onChange={(e) =>
+                      updateNotificationSetting(
+                        "eveningAdhkar",
+                        e.target.checked,
+                      )
+                    }
+                  />
+                </label>
+                <label>
+                  <BookOpen />
+                  {tr("الورد اليومي", "Daily Quran reminder")}
+                  <input
+                    type="checkbox"
+                    checked={notificationSettings.dailyWird}
+                    onChange={(e) =>
+                      updateNotificationSetting("dailyWird", e.target.checked)
+                    }
+                  />
+                </label>
+                <label>
+                  <Library />
+                  {tr("الحديث اليومي", "Daily Hadith")}
+                  <input
+                    type="checkbox"
+                    checked={notificationSettings.dailyHadith}
+                    onChange={(e) =>
+                      updateNotificationSetting("dailyHadith", e.target.checked)
+                    }
+                  />
+                </label>
+                <label>
+                  <Volume2 />
+                  {tr("الصوت", "Sound")}
+                  <input
+                    type="checkbox"
+                    checked={notificationSettings.sound}
+                    onChange={(e) =>
+                      updateNotificationSetting("sound", e.target.checked)
+                    }
+                  />
+                </label>
+                <label>
+                  <Vibrate />
+                  {tr("الاهتزاز", "Vibration")}
+                  <input
+                    type="checkbox"
+                    checked={notificationSettings.vibration}
+                    onChange={(e) =>
+                      updateNotificationSetting("vibration", e.target.checked)
+                    }
+                  />
+                </label>
+              </div>
+              {notificationStatus && (
+                <p className="notificationStatus">{notificationStatus}</p>
+              )}
+              <button className="secondary" onClick={sendTestNotification}>
                 <Bell />
-                إعادة جدولة الإشعارات
+                {tr("إرسال إشعار تجريبي", "Send test notification")}
+              </button>
+              <button className="secondary" onClick={openExactAlarmSettings}>
+                <Settings />
+                {tr("إعداد التنبيهات الدقيقة", "Exact alarm settings")}
+              </button>
+              <button
+                className="primary"
+                onClick={async () => {
+                  await scheduleNotifications();
+                  await verifyNotificationStatus();
+                }}
+              >
+                <Bell />
+                {tr("إعادة جدولة الإشعارات", "Reschedule notifications")}
               </button>
               <button className="link" onClick={() => setModal("privacy")}>
                 <Shield />
-                سياسة الخصوصية
+                {tr("سياسة الخصوصية", "Privacy policy")}
               </button>
               <button className="link" onClick={() => setModal("about")}>
                 <Info />
-                حول البرنامج
+                {tr("حول البرنامج", "About")}
               </button>
             </section>
           </>
@@ -585,11 +980,11 @@ export default function App() {
       <nav>
         {(
           [
-            ["home", Home, "الرئيسية"],
-            ["quran", BookOpen, "القرآن"],
-            ["adhkar", Heart, "الأذكار"],
-            ["khatma", CalendarDays, "الختمة"],
-            ["more", Settings, "المزيد"],
+            ["home", Home, tr("الرئيسية", "Home")],
+            ["quran", BookOpen, tr("القرآن", "Quran")],
+            ["adhkar", Heart, tr("الأذكار", "Adhkar")],
+            ["khatma", CalendarDays, tr("الختمة", "Khatma")],
+            ["more", Settings, tr("المزيد", "More")],
           ] as const
         ).map(([k, I, l]) => (
           <button
