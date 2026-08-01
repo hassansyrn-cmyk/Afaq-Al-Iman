@@ -1,10 +1,377 @@
-import{useEffect,useMemo,useRef,useState}from'react';import{App as NativeApp}from'@capacitor/app';import{Capacitor}from'@capacitor/core';import{Haptics,ImpactStyle,NotificationType}from'@capacitor/haptics';import{LocalNotifications}from'@capacitor/local-notifications';import{StatusBar,Style}from'@capacitor/status-bar';import{PrayerTimes,Coordinates,CalculationMethod,Qibla}from'adhan';import{Home,BookOpen,Heart,Compass,Settings,MapPin,Search,X,RotateCcw,Library,CalendarDays,Moon,Sun,Bell,Shield,Info,Bookmark,BookmarkCheck,ChevronLeft,Minus,Plus}from'lucide-react';import{cities,type City}from'./cities';import{adhkar}from'./adhkar';import{hadiths}from'./hadith';import{PrayerWidget}from'./native';
-type Tab='home'|'quran'|'adhkar'|'qibla'|'more';type More='menu'|'plan'|'hadith'|'settings';type Chapter={id:number;name:string;total_verses:number;verses:{id:number;text:string}[]};const load=<T,>(k:string,f:T):T=>{try{return JSON.parse(localStorage.getItem(k)||'')as T}catch{return f}};const save=(k:string,v:unknown)=>localStorage.setItem(k,JSON.stringify(v));const images={fajr:'./images/home/prayer-fajr.webp',sunrise:'./images/home/prayer-sunrise.webp',dhuhr:'./images/home/prayer-dhuhr.webp',asr:'./images/home/prayer-asr.webp',maghrib:'./images/home/prayer-maghrib.webp',isha:'./images/home/prayer-isha.webp',quran:'./images/quran/quran-hero.webp',adhkar:'./images/adhkar/adhkar-hero.webp',qibla:'./images/qibla/qibla-hero.webp',hadith:'./images/hadith/hadith-hero.webp',plan:'./images/khatma/khatma-hero.webp'};function method(c:City){switch(c.method){case'umm':return CalculationMethod.UmmAlQura();case'egypt':return CalculationMethod.Egyptian();case'karachi':return CalculationMethod.Karachi();case'north':return CalculationMethod.NorthAmerica();case'mwl':return CalculationMethod.MuslimWorldLeague();default:return CalculationMethod.Dubai()}}function Hero({image,title,sub}:{image:string;title:string;sub:string}){return <section className="sectionHero" style={{backgroundImage:`linear-gradient(90deg,#021c17eb,#04312845),url('${image}')`}}><div><h1>{title}</h1><p>{sub}</p></div></section>}
-export default function App(){const[tab,setTab]=useState<Tab>('home'),[more,setMore]=useState<More>('menu'),[dark,setDark]=useState(()=>load('dark',false)),[city,setCity]=useState<City>(()=>load('city',cities[0])),[picker,setPicker]=useState(false),[chapter,setChapter]=useState<Chapter|null>(null),[font,setFont]=useState(()=>load('quran-font',30)),[marks,setMarks]=useState<Record<string,boolean>>(()=>load('bookmarks',{})),[counts,setCounts]=useState<Record<string,number>>(()=>load('adhkar-counts',{})),[query,setQuery]=useState(''),[prompt,setPrompt]=useState(()=>!load('notification-intro',false)),[modal,setModal]=useState<'privacy'|'about'|null>(null),[remaining,setRemaining]=useState('');useEffect(()=>{document.documentElement.dataset.theme=dark?'dark':'light';save('dark',dark);if(Capacitor.isNativePlatform()){StatusBar.setOverlaysWebView({overlay:false});StatusBar.setBackgroundColor({color:dark?'#071713':'#F5F8F6'});StatusBar.setStyle({style:dark?Style.Dark:Style.Light})}},[dark]);
-const times=useMemo(()=>{const p=new PrayerTimes(new Coordinates(city.lat,city.lng),new Date(),method(city));return[['fajr','الفجر',p.fajr],['sunrise','الشروق',p.sunrise],['dhuhr','الظهر',p.dhuhr],['asr','العصر',p.asr],['maghrib','المغرب',p.maghrib],['isha','العشاء',p.isha]]as const},[city]);const next=useMemo(()=>{const now=new Date(),n=times.find(x=>x[2]>now);if(n)return n;const d=new Date();d.setDate(d.getDate()+1);const p=new PrayerTimes(new Coordinates(city.lat,city.lng),d,method(city));return['fajr','الفجر',p.fajr]as const},[times,city]);useEffect(()=>{const tick=()=>{const ms=Math.max(0,next[2].getTime()-Date.now()),h=Math.floor(ms/3600000),m=Math.floor(ms%3600000/60000),s=Math.floor(ms%60000/1000);setRemaining(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`)};tick();const id=setInterval(tick,1000);if(Capacitor.isNativePlatform())PrayerWidget.update({prayer:next[1],city:city.ar,target:next[2].getTime()}).catch(()=>{});return()=>clearInterval(id)},[next,city]);useEffect(()=>{if(!Capacitor.isNativePlatform())return;let rm:(()=>void)|undefined;NativeApp.addListener('backButton',()=>{if(prompt){setPrompt(false)}else if(modal){setModal(null)}else if(picker){setPicker(false)}else if(chapter){setChapter(null)}else if(tab!=='home'){setTab('home');setMore('menu')}else NativeApp.exitApp()}).then(h=>rm=()=>h.remove());return()=>rm?.()},[prompt,modal,picker,chapter,tab]);const fmt=(d:Date)=>d.toLocaleTimeString('ar-AE',{hour:'2-digit',minute:'2-digit'});
-async function askNotifications(){save('notification-intro',true);setPrompt(false);if(!Capacitor.isNativePlatform())return;const p=await LocalNotifications.requestPermissions();if(p.display==='granted')await scheduleNotifications()}
-async function scheduleNotifications(){if(!Capacitor.isNativePlatform())return;const pending=await LocalNotifications.getPending();if(pending.notifications.length)await LocalNotifications.cancel({notifications:pending.notifications});await LocalNotifications.createChannel({id:'prayer',name:'مواقيت الصلاة',importance:5});await LocalNotifications.createChannel({id:'reminders',name:'التذكيرات',importance:4});const now=new Date(),list:any[]=[];for(let day=0;day<14;day++){const d=new Date();d.setDate(d.getDate()+day);const p=new PrayerTimes(new Coordinates(city.lat,city.lng),d,method(city));[['الفجر',p.fajr],['الظهر',p.dhuhr],['العصر',p.asr],['المغرب',p.maghrib],['العشاء',p.isha]].forEach((x,i)=>{if((x[1]as Date)>now)list.push({id:4000+day*10+i,title:`حان وقت صلاة ${x[0]}`,body:city.ar,schedule:{at:x[1],allowWhileIdle:true},channelId:'prayer'})});const a=new Date(d);a.setHours(7,0,0,0);if(a>now)list.push({id:2000+day,title:'أذكار الصباح',body:'ابدأ يومك بذكر الله',schedule:{at:a},channelId:'reminders'});const w=new Date(d);w.setHours(20,0,0,0);if(w>now)list.push({id:1000+day,title:'وردك اليومي',body:'خصص دقائق لورد القرآن',schedule:{at:w},channelId:'reminders'});const h=new Date(d);h.setHours(12,0,0,0);if(h>now){const item=hadiths[(day+new Date().getDate())%hadiths.length];list.push({id:3000+day,title:'حديث اليوم',body:`${item[0]} — ${item[2]}`,schedule:{at:h},channelId:'reminders'})}}await LocalNotifications.schedule({notifications:list})}
-async function openSura(id:number){setChapter(await fetch(`./quran/${id}.json`).then(r=>r.json()))}function go(t:Tab){setTab(t);setMore('menu');setChapter(null)}const filtered=hadiths.filter(h=>(h[0]+h[1]+h[2]).toLowerCase().includes(query.toLowerCase()));return <div className="app"><header><div className="brand"><b>أ</b><span><strong>آفاق الإيمان</strong><small onClick={()=>setPicker(true)}>{city.ar}</small></span></div><div className="headBtns"><button onClick={()=>setPicker(true)}><MapPin/></button><button onClick={()=>setDark(!dark)}>{dark?<Sun/>:<Moon/>}</button></div></header><main>{tab==='home'&&<><section className="prayerHero" style={{backgroundImage:`linear-gradient(90deg,#021c17ed,#04312835),url('${images[next[0]]}')`}}><span>الصلاة القادمة</span><h1>{next[1]}</h1><strong>{fmt(next[2])}</strong><div className="countdown"><small>متبقي</small><b>{remaining}</b></div><p><MapPin/> {city.ar}</p></section><section className="prayerGrid">{times.map(x=><div className={x[0]===next[0]?'active':''} key={x[0]}><span>{x[1]}</span><b>{fmt(x[2])}</b></div>)}</section><section className="quick"><button onClick={()=>go('quran')}><BookOpen/>القرآن</button><button onClick={()=>go('adhkar')}><Heart/>الأذكار</button><button onClick={()=>go('qibla')}><Compass/>القبلة</button></section><section className="glass"><small>حديث عشوائي</small><blockquote>«{hadiths[new Date().getDate()%hadiths.length][0]}»</blockquote><em>{hadiths[new Date().getDate()%hadiths.length][2]}</em><button onClick={()=>{setTab('more');setMore('hadith')}}>فتح المكتبة</button></section></>}{tab==='quran'&&(chapter?<Reader c={chapter} font={font} setFont={setFont} marks={marks} toggle={id=>{const k=`${chapter.id}:${id}`,n={...marks,[k]:!marks[k]};setMarks(n);save('bookmarks',n)}} back={()=>setChapter(null)}/>:<><Hero image={images.quran} title="القرآن الكريم" sub="قراءة متصلة بخط قرآني محلي"/><div className="suras">{Array.from({length:114},(_,i)=><button key={i} onClick={()=>openSura(i+1)}><b>{i+1}</b><span>سورة رقم {i+1}</span><ChevronLeft/></button>)}</div></>)}{tab==='adhkar'&&<><Hero image={images.adhkar} title="الأذكار" sub="عدادات محفوظة على الجهاز"/><button className="resetAll" onClick={()=>{setCounts({});save('adhkar-counts',{})}}><RotateCcw/>إعادة ضبط الكل</button><div className="zikrList">{adhkar.map(([id,text,target])=>{const n=counts[id]||0,p=n/target*100;return <button className={'zikr '+(n===target?'done':'')} key={id} onClick={async()=>{if(n>=target)return;const x=n+1,v={...counts,[id]:x};setCounts(v);save('adhkar-counts',v);if(Capacitor.isNativePlatform())x===target?await Haptics.notification({type:NotificationType.Success}):await Haptics.impact({style:ImpactStyle.Light})}}><div className="ring" style={{background:`conic-gradient(var(--gold) ${p}%,var(--line) 0)`}}><i>{n}</i><small>/{target}</small></div><p>{text}</p><span>{n===target?'مكتمل':'اضغط للعد'}</span></button>})}</div></>}{tab==='qibla'&&<><Hero image={images.qibla} title="اتجاه القبلة" sub={`حسب ${city.ar}`}/><QiblaCompass city={city}/></>}{tab==='more'&&more==='menu'&&<><h1>المزيد</h1><div className="menuGrid"><button onClick={()=>setMore('plan')}><CalendarDays/>الختمة</button><button onClick={()=>setMore('hadith')}><Library/>الأحاديث</button><button onClick={()=>setPicker(true)}><MapPin/>المدينة</button><button onClick={()=>setMore('settings')}><Settings/>الإعدادات</button></div></>}{tab==='more'&&more==='plan'&&<><Hero image={images.plan} title="خطة الختمة" sub="الخطة الحالية محفوظة"/><section className="glass"><p>استخدم خطة الختمة الحالية الموجودة في مشروع V4.</p></section></>}{tab==='more'&&more==='hadith'&&<><Hero image={images.hadith} title="مكتبة الأحاديث" sub="بحث عربي وإنجليزي في البيانات المتاحة"/><label className="search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="ابحث بكلمة أو رقم"/></label>{filtered.map((h,i)=><article className="glass" key={i}><p>«{h[0]}»</p><p>{h[1]}</p><small>{h[2]}</small></article>)}</>}{tab==='more'&&more==='settings'&&<><h1>الإعدادات</h1><section className="glass settings"><label><Moon/>الوضع الليلي<input type="checkbox" checked={dark} onChange={()=>setDark(!dark)}/></label><button className="primary" onClick={scheduleNotifications}><Bell/>إعادة جدولة الإشعارات</button><button className="link" onClick={()=>setModal('privacy')}><Shield/>سياسة الخصوصية</button><button className="link" onClick={()=>setModal('about')}><Info/>حول البرنامج</button></section></>}</main><nav>{([['home',Home,'الرئيسية'],['quran',BookOpen,'القرآن'],['adhkar',Heart,'الأذكار'],['qibla',Compass,'القبلة'],['more',Settings,'المزيد']]as const).map(([k,I,l])=><button key={k} className={tab===k?'on':''} onClick={()=>go(k)}><I/><span>{l}</span></button>)}</nav>{picker&&<CityPicker city={city} close={()=>setPicker(false)} choose={c=>{setCity(c);save('city',c);setPicker(false);setTimeout(scheduleNotifications,0)}}/>}{prompt&&<div className="modal"><section className="sheet"><Bell/><h2>تفعيل التذكيرات</h2><p>يستخدم آفاق الإيمان الإشعارات لمواقيت الصلاة والأذكار والورد والحديث اليومي.</p><button className="primary" onClick={askNotifications}>السماح بالإشعارات</button><button className="secondary" onClick={()=>{save('notification-intro',true);setPrompt(false)}}>لاحقاً</button></section></div>}{modal&&<div className="modal"><section className="sheet"><button onClick={()=>setModal(null)}><X/></button>{modal==='privacy'?<><h2>سياسة الخصوصية</h2><p>تُحفظ المدينة والعلامات والختمة والإعدادات محلياً، ولا يبيع التطبيق البيانات الشخصية.</p></>:<><h2>حول البرنامج</h2><p>آفاق الإيمان 1.5.0. المواقيت حسابية وقد تختلف بدقائق. النص القرآني محلي، والتذكيرات تعمل بجدولة Android المحلية.</p></>}</section></div>}</div>}
-function CityPicker({city,choose,close}:{city:City;choose:(c:City)=>void;close:()=>void}){const[q,setQ]=useState('');return <div className="modal"><section className="sheet citySheet"><div className="sheetHead"><h2>اختيار المدينة</h2><button onClick={close}><X/></button></div><label className="search"><Search/><input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="مدينة أو دولة"/></label><div className="cityList">{cities.filter(c=>(c.ar+c.en).toLowerCase().includes(q.toLowerCase())).map(c=><button className={c.id===city.id?'selected':''} key={c.id} onClick={()=>choose(c)}><b>{c.ar}</b><small>{c.en}</small></button>)}</div></section></div>}
-function Reader({c,font,setFont,marks,toggle,back}:{c:Chapter;font:number;setFont:(n:number)=>void;marks:Record<string,boolean>;toggle:(id:number)=>void;back:()=>void}){return <><div className="readerHead"><button onClick={back}>×</button><h1>سورة {c.name}</h1><div><button onClick={()=>{const n=Math.max(22,font-2);setFont(n);save('quran-font',n)}}><Minus/></button><button onClick={()=>{const n=Math.min(46,font+2);setFont(n);save('quran-font',n)}}><Plus/></button></div></div><section className="mushafPage" style={{fontSize:font}}>{c.verses.map(v=><span className="verse" key={v.id}>{v.text} <b>﴿{v.id}﴾</b><button className={marks[`${c.id}:${v.id}`]?'marked':''} onClick={()=>toggle(v.id)} aria-label="حفظ الآية">{marks[`${c.id}:${v.id}`]?<BookmarkCheck/>:<Bookmark/>}</button> </span>)}</section></>}
-function QiblaCompass({city}:{city:City}){const bearing=Math.round(Qibla(new Coordinates(city.lat,city.lng))),[heading,setHeading]=useState<number|null>(null),buf=useRef<number[]>([]),last=useRef(0);useEffect(()=>{const f=(e:any)=>{if(performance.now()-last.current<100)return;last.current=performance.now();let x=typeof e.webkitCompassHeading==='number'?e.webkitCompassHeading:typeof e.alpha==='number'?(360-e.alpha)%360:null;if(x===null)return;x=(x+(screen.orientation?.angle||0)+360)%360;buf.current.push(x);if(buf.current.length>20)buf.current.shift();const s=buf.current.reduce((a,v)=>a+Math.sin(v*Math.PI/180),0),c=buf.current.reduce((a,v)=>a+Math.cos(v*Math.PI/180),0),m=(Math.atan2(s,c)*180/Math.PI+360)%360;setHeading(h=>h===null||Math.abs(((m-h+540)%360)-180)>2.5?m:h)};window.addEventListener('deviceorientationabsolute',f,true);window.addEventListener('deviceorientation',f,true);return()=>{window.removeEventListener('deviceorientationabsolute',f,true);window.removeEventListener('deviceorientation',f,true)}},[]);const delta=heading===null?bearing:((bearing-heading+540)%360)-180;return <section className="compassCard"><div className="compassDial"><b>N</b><div className="redArrow" style={{transform:`translate(-50%,-100%) rotate(${delta}deg)`}}/><div className="kaabaMark">◆<small>الكعبة</small></div></div><h2>{bearing}° من الشمال</h2><p>{heading===null?'المستشعر غير متاح، استخدم الدرجة الثابتة':`تبقى ${Math.abs(Math.round(delta))}° للوصول إلى القبلة`}</p></section>}
+import { useEffect, useState } from 'react';
+import { Home, BookOpen, Library, Settings as SettingsIcon, Moon, Sun, CalendarDays, Compass } from 'lucide-react';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { Capacitor } from '@capacitor/core';
+import { PrayerTimes, Coordinates, CalculationMethod } from 'adhan';
+
+import type { Tab, Chapter, ChapterMeta, HadithRecord } from './types';
+import { load, save } from './services/storage';
+import { useBackButton } from './hooks/useBackButton';
+import type { BackStackState } from './services/backStack';
+
+import { SuraList } from './features/quran/SuraList';
+import { QuranReader } from './features/quran/QuranReader';
+import { BookmarksList } from './features/quran/BookmarksList';
+import { getLastRead } from './repositories/quran/BookmarkRepository';
+import { KhatmaPlanScreen } from './features/khatma/KhatmaPlan';
+import { KhatmaRepository } from './repositories/khatma/KhatmaRepository';
+import { HadithList } from './features/hadith/HadithList';
+import { HadithDetail } from './features/hadith/HadithDetail';
+import { hadithRepository } from './repositories/hadith/hadithRepositoryInstance';
+import { DailyHadithService } from './repositories/hadith/DailyHadithService';
+import { QiblaCompass } from './features/qibla/QiblaCompass';
+import { SettingsPage, type SettingsSheet } from './features/settings/SettingsPage';
+import {
+  NotificationOnboarding,
+  shouldShowNotificationOnboarding,
+} from './features/notifications/NotificationOnboarding';
+import { getNotificationPrefs } from './services/notificationPrefs';
+
+const khatmaRepo = new KhatmaRepository();
+const dailyHadithService = new DailyHadithService(hadithRepository);
+
+// إحداثيات افتراضية (أبوظبي) — نسخة V4 الأساسية لم تتضمن اختيار مدينة فعلياً؛
+// هذا حد معروف موثّق في README بدل الادعاء بدعم اختيار المدينة.
+const DEFAULT_COORDS = { lat: 24.4539, lng: 54.3773 };
+
+export default function App() {
+  const [tab, setTab] = useState<Tab>('home');
+  const [dark, setDark] = useState<boolean>(() => load('dark', false));
+  const [chapter, setChapter] = useState<Chapter | null>(null);
+  const [chapters, setChapters] = useState<ChapterMeta[]>([]);
+  const [bookmarksListOpen, setBookmarksListOpen] = useState(false);
+  const [hadithDetailId, setHadithDetailId] = useState<string | null>(null);
+  const [tafsirAyah, setTafsirAyah] = useState<number | null>(null);
+  const [settingsSheet, setSettingsSheet] = useState<SettingsSheet>(null);
+  const [todayHadith, setTodayHadith] = useState<{ hadith: HadithRecord | null; isFullLibrary: boolean } | null>(null);
+  const [notifOnboardingOpen, setNotifOnboardingOpen] = useState(false);
+
+  // ---- الوضع الليلي ----
+  useEffect(() => {
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    save('dark', dark);
+    if (Capacitor.isNativePlatform()) {
+      StatusBar.setStyle({ style: dark ? Style.Dark : Style.Light }).catch(() => {});
+      StatusBar.setBackgroundColor({ color: dark ? '#071713' : '#F5F8F6' }).catch(() => {});
+    }
+  }, [dark]);
+
+  // ---- تثبيت overlaysWebView=false عند الإقلاع، تحسباً لأي تغيير بيئة ----
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {});
+  }, []);
+
+  // ---- تحميل فهرس السور مرة واحدة ----
+  useEffect(() => {
+    fetch('./quran/index.json')
+      .then((r) => r.json())
+      .then((data: ChapterMeta[]) => setChapters(data))
+      .catch(() => setChapters([]));
+  }, []);
+
+  // ---- حديث اليوم ----
+  useEffect(() => {
+    dailyHadithService.getTodayHadith().then(setTodayHadith);
+  }, []);
+
+  // ---- شاشة إذن الإشعارات عند أول تشغيل ----
+  useEffect(() => {
+    if (shouldShowNotificationOnboarding()) setNotifOnboardingOpen(true);
+  }, []);
+
+  async function openSura(id: number) {
+    const data: Chapter = await fetch(`./quran/${id}.json`).then((r) => r.json());
+    setChapter(data);
+    setTab('quran');
+  }
+
+  // ---- زر الرجوع الفعلي في أندرويد ----
+  function currentBackState(): BackStackState {
+    return {
+      isSheetOpen: tafsirAyah != null || settingsSheet != null,
+      isHadithDetailOpen: hadithDetailId != null,
+      isSuraOpen: chapter != null,
+      isBookmarksListOpen: bookmarksListOpen,
+      activeTab: tab,
+    };
+  }
+
+  useBackButton(currentBackState, {
+    closeSheet: () => {
+      if (tafsirAyah != null) setTafsirAyah(null);
+      else if (settingsSheet != null) setSettingsSheet(null);
+    },
+    closeHadithDetail: () => setHadithDetailId(null),
+    closeSura: () => {
+      setChapter(null);
+      setTafsirAyah(null);
+    },
+    closeBookmarksList: () => setBookmarksListOpen(false),
+    goHome: () => setTab('home'),
+  });
+
+  // ---- جدولة الإشعارات (مواقيت الصلاة + الأذكار + الورد + الحديث اليومي) ----
+  async function scheduleNotifications() {
+    if (!Capacitor.isNativePlatform()) return;
+    const perm = await LocalNotifications.requestPermissions();
+    if (perm.display !== 'granted') return;
+
+    await LocalNotifications.createChannel({ id: 'prayer', name: 'مواقيت الصلاة', importance: 5 });
+    await LocalNotifications.createChannel({ id: 'adhkar', name: 'الأذكار', importance: 4 });
+    await LocalNotifications.createChannel({ id: 'quran-reminders', name: 'تذكيرات القرآن', importance: 4 });
+    await LocalNotifications.createChannel({ id: 'daily-hadith', name: 'الحديث اليومي', importance: 3 });
+
+    // إلغاء الإشعارات المجدولة سابقاً قبل إعادة الجدولة، لمنع التكرار
+    const pending = await LocalNotifications.getPending();
+    if (pending.notifications.length > 0) {
+      await LocalNotifications.cancel({ notifications: pending.notifications.map((n) => ({ id: n.id })) });
+    }
+
+    const prefs = getNotificationPrefs();
+    const now = new Date();
+    const list: Parameters<typeof LocalNotifications.schedule>[0]['notifications'] = [];
+
+    if (prefs.prayer) {
+      for (let day = 0; day < 7; day++) {
+        const date = new Date(now);
+        date.setDate(now.getDate() + day);
+        const pt = new PrayerTimes(new Coordinates(DEFAULT_COORDS.lat, DEFAULT_COORDS.lng), date, CalculationMethod.Dubai());
+        const prayers = [
+          ['الفجر', pt.fajr],
+          ['الظهر', pt.dhuhr],
+          ['العصر', pt.asr],
+          ['المغرب', pt.maghrib],
+          ['العشاء', pt.isha],
+        ] as const;
+        prayers.forEach(([name, time], j) => {
+          if (time > now) {
+            list.push({
+              id: 4000 + day * 10 + j,
+              title: `حان وقت صلاة ${name}`,
+              body: 'تقبل الله طاعتكم',
+              schedule: { at: time, allowWhileIdle: true },
+              channelId: 'prayer',
+            });
+          }
+        });
+      }
+    }
+
+    for (let i = 1; i <= 14; i++) {
+      if (prefs.adhkarMorning) {
+        const morning = new Date(now);
+        morning.setDate(now.getDate() + i);
+        morning.setHours(7, 0, 0, 0);
+        list.push({ id: 2000 + i, title: 'أذكار الصباح', body: 'ابدأ يومك بذكر الله', schedule: { at: morning }, channelId: 'adhkar' });
+      }
+
+      if (prefs.adhkarEvening) {
+        const evening = new Date(now);
+        evening.setDate(now.getDate() + i);
+        evening.setHours(18, 0, 0, 0);
+        list.push({ id: 2500 + i, title: 'أذكار المساء', body: 'اختم يومك بذكر الله', schedule: { at: evening }, channelId: 'adhkar' });
+      }
+
+      if (prefs.wird) {
+        const wird = new Date(now);
+        wird.setDate(now.getDate() + i);
+        wird.setHours(20, 0, 0, 0);
+        list.push({ id: 1000 + i, title: 'وردك اليومي', body: 'خصص دقائق لورد القرآن اليوم', schedule: { at: wird }, channelId: 'quran-reminders' });
+      }
+
+      if (prefs.wirdIncomplete) {
+        const lateCheck = new Date(now);
+        lateCheck.setDate(now.getDate() + i);
+        lateCheck.setHours(22, 30, 0, 0);
+        const dateStr = lateCheck.toISOString().slice(0, 10);
+        const plan = khatmaRepo.getPlan();
+        const alreadyDoneThatDay = plan?.history.some((h) => h.date === dateStr) ?? false;
+        // لا نرسل تذكير "لم يكتمل الورد" لليوم الحالي لأننا لا نعرف بعد إن كان سيُنجز أم لا؛
+        // فقط لأيام مستقبلية تُترك دون سجل إنجاز عند الجدولة نفسها لا معنى لها هنا، لذلك
+        // نكتفي بعدم جدولتها لأي يوم مسجَّل بالفعل وقت الجدولة (منع تذكير بعد الإنجاز).
+        if (!alreadyDoneThatDay) {
+          list.push({
+            id: 1500 + i,
+            title: 'لم يكتمل ورد اليوم بعد',
+            body: 'لا يزال بإمكانك إتمام وردك اليوم',
+            schedule: { at: lateCheck },
+            channelId: 'quran-reminders',
+          });
+        }
+      }
+
+      if (prefs.dailyHadith) {
+        const hadithTime = new Date(now);
+        hadithTime.setDate(now.getDate() + i);
+        hadithTime.setHours(12, 0, 0, 0);
+        list.push({ id: 3000 + i, title: 'حديث اليوم', body: 'اطّلع على حديث اليوم', schedule: { at: hadithTime }, channelId: 'daily-hadith' });
+      }
+    }
+
+    await LocalNotifications.schedule({ notifications: list });
+    alert('تمت جدولة التذكيرات للأيام القادمة');
+  }
+
+  const plan = khatmaRepo.getPlan();
+  const progress = plan ? khatmaRepo.getProgress(plan) : null;
+  const lastRead = getLastRead();
+
+  return (
+    <div className="app">
+      <header>
+        <div className="brand">
+          <b>أ</b>
+          <span>
+            <strong>آفاق الإيمان</strong>
+            <small>رحلة إيمانية يومية</small>
+          </span>
+        </div>
+        <button className="round" onClick={() => setDark(!dark)} aria-label="تبديل الوضع الليلي">
+          {dark ? <Sun /> : <Moon />}
+        </button>
+      </header>
+
+      <main>
+        {tab === 'home' && (
+          <>
+            <section className="hero">
+              <div>
+                <small>ورد اليوم</small>
+                <h1>{progress ? `صفحة ${progress.todayStartPage} إلى ${progress.todayEndPage}` : 'لا توجد خطة بعد'}</h1>
+                <p>{plan ? `خطة مرنة لختم القرآن خلال ${plan.totalDays} يوماً` : 'أنشئ خطة ختمة من تبويب الختمة'}</p>
+              </div>
+              <div className="orb">{progress ? `${progress.percent}%` : '—'}</div>
+              <button onClick={() => setTab('plan')}>إدارة الختمة</button>
+            </section>
+
+            <section className="quick">
+              <button onClick={() => setTab('quran')}>
+                <BookOpen /> المصحف
+              </button>
+              <button onClick={() => setTab('hadith')}>
+                <Library /> الأحاديث
+              </button>
+              <button onClick={() => setTab('qibla')}>
+                <Compass /> القبلة
+              </button>
+            </section>
+
+            {lastRead && (
+              <section className="glass">
+                <small>آخر قراءة</small>
+                <h2>
+                  سورة {lastRead.suraName} • الآية {lastRead.ayah}
+                </h2>
+                <button onClick={() => openSura(lastRead.sura)}>متابعة القراءة</button>
+              </section>
+            )}
+
+            <section className="glass hadith">
+              <small>حديث اليوم</small>
+              {todayHadith?.hadith ? (
+                <>
+                  <blockquote>«{todayHadith.hadith.textAr}»</blockquote>
+                  <em>{todayHadith.hadith.source}</em>
+                  {!todayHadith.isFullLibrary && (
+                    <p className="muted" style={{ fontSize: 12 }}>
+                      من مجموعة اختبار محلية، وليس من كامل الصحيحين بعد.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="muted">جارٍ التحميل…</p>
+              )}
+            </section>
+          </>
+        )}
+
+        {tab === 'quran' && (
+          <>
+            {chapter ? (
+              <QuranReader
+                chapter={chapter}
+                onBack={() => setChapter(null)}
+                onOpenBookmarksList={() => setBookmarksListOpen(true)}
+                tafsirTarget={tafsirAyah}
+                onOpenTafsir={setTafsirAyah}
+                onCloseTafsir={() => setTafsirAyah(null)}
+              />
+            ) : bookmarksListOpen ? (
+              <BookmarksList
+                onBack={() => setBookmarksListOpen(false)}
+                onOpenAyah={(sura) => {
+                  setBookmarksListOpen(false);
+                  openSura(sura);
+                }}
+              />
+            ) : (
+              <SuraList chapters={chapters} onOpenChapter={openSura} onOpenBookmarks={() => setBookmarksListOpen(true)} />
+            )}
+          </>
+        )}
+
+        {tab === 'plan' && (
+          <KhatmaPlanScreen
+            onOpenQuranAtPage={() => {
+              setTab('quran');
+              // ملاحظة: لا تتوفر بيانات "صفحة → سورة/آية" رسمية في هذه النسخة،
+              // لذلك ننتقل لقائمة السور بدل خداع المستخدم برقم صفحة غير دقيق.
+            }}
+          />
+        )}
+
+        {tab === 'hadith' && (
+          <>
+            {hadithDetailId ? (
+              <HadithDetail hadithId={hadithDetailId} onBack={() => setHadithDetailId(null)} />
+            ) : (
+              <HadithList onOpenDetail={setHadithDetailId} />
+            )}
+          </>
+        )}
+
+        {tab === 'qibla' && <QiblaCompass cityLat={DEFAULT_COORDS.lat} cityLng={DEFAULT_COORDS.lng} />}
+
+        {tab === 'settings' && (
+          <>
+            <SettingsPage openSheet={settingsSheet} onOpenSheet={setSettingsSheet} />
+            <section className="glass">
+              <button className="primary" onClick={scheduleNotifications}>
+                تفعيل وجدولة كل التذكيرات
+              </button>
+            </section>
+          </>
+        )}
+      </main>
+
+      <nav>
+        {(
+          [
+            ['home', Home, 'الرئيسية'],
+            ['quran', BookOpen, 'القرآن'],
+            ['plan', CalendarDays, 'الختمة'],
+            ['hadith', Library, 'الأحاديث'],
+            ['qibla', Compass, 'القبلة'],
+            ['settings', SettingsIcon, 'المزيد'],
+          ] as const
+        ).map(([key, Icon, label]) => (
+          <button
+            key={key}
+            className={tab === key ? 'on' : ''}
+            onClick={() => {
+              setTab(key);
+              if (key !== 'quran') setChapter(null);
+            }}
+          >
+            <Icon />
+            <span>{label}</span>
+          </button>
+        ))}
+      </nav>
+
+      {notifOnboardingOpen && <NotificationOnboarding onDone={() => setNotifOnboardingOpen(false)} />}
+    </div>
+  );
+}

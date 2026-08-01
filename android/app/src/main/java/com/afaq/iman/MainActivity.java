@@ -1,3 +1,21 @@
 package com.afaq.iman;
-import android.os.Bundle;import android.graphics.Color;import android.graphics.drawable.ColorDrawable;import android.view.View;import androidx.core.graphics.Insets;import androidx.core.view.ViewCompat;import androidx.core.view.WindowCompat;import androidx.core.view.WindowInsetsCompat;import com.getcapacitor.BridgeActivity;
-public class MainActivity extends BridgeActivity{@Override protected void onCreate(Bundle b){registerPlugin(PrayerWidgetPlugin.class);super.onCreate(b);WindowCompat.setDecorFitsSystemWindows(getWindow(),false);getWindow().setBackgroundDrawable(new ColorDrawable(Color.rgb(245,248,246)));View content=findViewById(android.R.id.content);ViewCompat.setOnApplyWindowInsetsListener(content,(v,insets)->{Insets bars=insets.getInsets(WindowInsetsCompat.Type.systemBars()|WindowInsetsCompat.Type.displayCutout());v.setPadding(bars.left,bars.top,bars.right,bars.bottom);return WindowInsetsCompat.CONSUMED;});ViewCompat.requestApplyInsets(content);}}
+
+import android.os.Build;
+import android.os.Bundle;
+import androidx.core.view.WindowCompat;
+import com.getcapacitor.BridgeActivity;
+
+public class MainActivity extends BridgeActivity {
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        // إصلاح الهيدر خلف شريط الحالة (الساعة/البطارية/الشبكة/النوتش):
+        // نطلب من النظام عدم فرض تخطيط Edge-to-Edge تلقائياً على الـ WebView،
+        // لأن @capacitor/status-bar مع overlaysWebView=false (في capacitor.config.ts)
+        // هو من يتحكم بمساحة شريط الحالة. الجمع بين الاثنين مطلوب لأن بعض
+        // إصدارات أندرويد (خصوصاً 15/16 Edge-to-Edge الإجباري) تتجاوز إعداد
+        // Capacitor وحده إن لم نضبط decorFitsSystemWindows صراحة هنا.
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+    }
+}
