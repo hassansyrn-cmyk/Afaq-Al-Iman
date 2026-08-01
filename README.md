@@ -1,7 +1,8 @@
-# Quran squares and header icon hotfix
-انسخ src وpublic فوق جذر المشروع مع الاستبدال.
+# QPC Hafs + Hijri + Surah metadata
+Run from the repository root in Termux:
 
-- الخط القرآني أصبح محلياً داخل APK ولا يعتمد على رابط خارجي قد يرفض التحميل.
-- الأيقونة هي صورة آفاق الخضراء والذهبية المرفقة، مقصوصة ومهيأة بحجم 512x512 للهيدر.
+python ~/storage/downloads/afaq-quran-hijri-metadata/apply-update.py
+npm run build
+npx cap sync android
 
-ثم شغّل npm run build و npx cap sync android.
+The script downloads the official QPC Hafs V22 font into public/fonts, removes the previous tanween normalization, adds Hijri date to home and widget, and adds English name/meaning plus Meccan/Medinan classification to all 114 surahs.
