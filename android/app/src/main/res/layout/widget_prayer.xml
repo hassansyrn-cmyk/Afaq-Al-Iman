@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:gravity="center_vertical"
-    android:padding="18dp"
+    android:padding="16dp"
     android:background="@drawable/widget_background">
 
     <LinearLayout
@@ -25,9 +25,8 @@
                 android:layout_height="wrap_content"
                 android:text="آفاق الإيمان"
                 android:textColor="#FFFFFFFF"
-                android:textSize="17sp"
-                android:textStyle="bold"
-                android:fontFamily="serif" />
+                android:textSize="16sp"
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/widget_city"
@@ -36,8 +35,7 @@
                 android:layout_marginTop="2dp"
                 android:text="أبوظبي"
                 android:textColor="#DDF2EDE8"
-                android:textSize="12sp"
-                android:fontFamily="serif" />
+                android:textSize="12sp" />
         </LinearLayout>
 
         <TextView
@@ -48,15 +46,16 @@
             android:textColor="#FFF1D887"
             android:textSize="20sp"
             android:textStyle="bold"
-            android:fontFamily="sans" />
+            android:gravity="center" />
     </LinearLayout>
 
-    <View
+    <TextView
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:layout_marginTop="12dp"
         android:layout_marginBottom="12dp"
-        android:background="#32FFFFFF" />
+        android:background="#32FFFFFF"
+        android:text="" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -75,19 +74,17 @@
                 android:layout_height="wrap_content"
                 android:text="الصلاة القادمة"
                 android:textColor="#CDE7E0DC"
-                android:textSize="11sp"
-                android:fontFamily="serif" />
+                android:textSize="11sp" />
 
             <TextView
                 android:id="@+id/widget_prayer"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="1dp"
+                android:layout_marginTop="2dp"
                 android:text="العصر"
                 android:textColor="#FFFFFFFF"
                 android:textSize="25sp"
-                android:textStyle="bold"
-                android:fontFamily="serif" />
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/widget_prayer_time"
@@ -97,20 +94,16 @@
                 android:text="04:15 م"
                 android:textColor="#FFF1D887"
                 android:textSize="14sp"
-                android:textStyle="bold"
-                android:fontFamily="serif" />
+                android:textStyle="bold" />
         </LinearLayout>
 
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:minWidth="112dp"
+            android:minWidth="104dp"
             android:orientation="vertical"
             android:gravity="center"
-            android:paddingStart="12dp"
-            android:paddingTop="9dp"
-            android:paddingEnd="12dp"
-            android:paddingBottom="9dp"
+            android:padding="10dp"
             android:background="@drawable/widget_countdown_background">
 
             <TextView
@@ -118,19 +111,18 @@
                 android:layout_height="wrap_content"
                 android:text="الوقت المتبقي"
                 android:textColor="#CDE7E0DC"
-                android:textSize="10sp"
-                android:fontFamily="serif" />
+                android:textSize="10sp" />
 
             <TextView
                 android:id="@+id/widget_countdown"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
+                android:layout_marginTop="3dp"
                 android:text="00:00"
                 android:textColor="#FFFFFFFF"
                 android:textSize="20sp"
                 android:textStyle="bold"
-                android:fontFamily="monospace" />
+                android:gravity="center" />
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>

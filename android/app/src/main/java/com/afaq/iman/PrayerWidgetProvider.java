@@ -28,8 +28,8 @@ public class PrayerWidgetProvider extends AppWidgetProvider {
     @Override
     public void onEnabled(Context context) {
         super.onEnabled(context);
-        startMinuteUpdates(context);
         updateExisting(context);
+        startMinuteUpdates(context);
     }
 
     @Override
@@ -41,41 +41,45 @@ public class PrayerWidgetProvider extends AppWidgetProvider {
     @Override
     public void onReceive(Context context, Intent intent) {
         super.onReceive(context, intent);
-        if (ACTION_TICK.equals(intent.getAction())) {
+        String action = intent.getAction();
+        if (ACTION_TICK.equals(action)
+                || Intent.ACTION_TIME_CHANGED.equals(action)
+                || Intent.ACTION_TIMEZONE_CHANGED.equals(action)) {
             updateExisting(context);
         }
     }
 
-    private static void updateExisting(Context context) {
+    public static void updateExisting(Context context) {
         AppWidgetManager manager = AppWidgetManager.getInstance(context);
         int[] ids = manager.getAppWidgetIds(
-            new ComponentName(context, PrayerWidgetProvider.class)
-        );
+                new ComponentName(context, PrayerWidgetProvider.class));
         updateAll(context, ids);
     }
 
     public static void updateAll(Context context, int[] ids) {
         SharedPreferences preferences = context.getSharedPreferences(
-            PREFS_NAME,
-            Context.MODE_PRIVATE
-        );
+                PREFS_NAME, Context.MODE_PRIVATE);
 
-        String prayer = preferences.getString("prayer", "افتح التطبيق للتحديث");
-        String city = preferences.getString("city", "آفاق الإيمان");
-        long target = preferences.getLong("target", System.currentTimeMillis());
-        long remaining = Math.max(0L, target - System.currentTimeMillis());
+        String prayer = preferences.getString(
+                "prayer", "افتح التطبيق للتحديث");
+        String city = preferences.getString(
+                "city", "آفاق الإيمان");
+        long target = preferences.getLong(
+                "target", System.currentTimeMillis());
+        long remaining = Math.max(
+                0L, target - System.currentTimeMillis());
 
-        String currentTime = DateFormat.getTimeFormat(context).format(new Date());
-        String prayerTime = DateFormat.getTimeFormat(context).format(new Date(target));
+        String currentTime = DateFormat.getTimeFormat(context)
+                .format(new Date());
+        String prayerTime = DateFormat.getTimeFormat(context)
+                .format(new Date(target));
         String countdown = formatRemaining(remaining);
 
         AppWidgetManager manager = AppWidgetManager.getInstance(context);
 
         for (int id : ids) {
             RemoteViews views = new RemoteViews(
-                context.getPackageName(),
-                R.layout.widget_prayer
-            );
+                    context.getPackageName(), R.layout.widget_prayer);
 
             views.setTextViewText(R.id.widget_city, city);
             views.setTextViewText(R.id.widget_current_time, currentTime);
@@ -84,14 +88,15 @@ public class PrayerWidgetProvider extends AppWidgetProvider {
             views.setTextViewText(R.id.widget_countdown, countdown);
 
             Intent open = new Intent(context, MainActivity.class);
-            open.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            open.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                    | Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
             PendingIntent openIntent = PendingIntent.getActivity(
-                context,
-                id,
-                open,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-            );
+                    context,
+                    id,
+                    open,
+                    PendingIntent.FLAG_UPDATE_CURRENT
+                            | PendingIntent.FLAG_IMMUTABLE);
 
             views.setOnClickPendingIntent(R.id.widget_root, openIntent);
             manager.updateAppWidget(id, views);
@@ -109,28 +114,30 @@ public class PrayerWidgetProvider extends AppWidgetProvider {
         Intent intent = new Intent(context, PrayerWidgetProvider.class);
         intent.setAction(ACTION_TICK);
         return PendingIntent.getBroadcast(
-            context,
-            9201,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
+                context,
+                9201,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT
+                        | PendingIntent.FLAG_IMMUTABLE);
     }
 
     private static void startMinuteUpdates(Context context) {
-        AlarmManager alarm = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        AlarmManager alarm = (AlarmManager) context.getSystemService(
+                Context.ALARM_SERVICE);
         if (alarm == null) return;
 
-        long first = SystemClock.elapsedRealtime() + 60000L;
         alarm.setInexactRepeating(
-            AlarmManager.ELAPSED_REALTIME,
-            first,
-            60000L,
-            tickIntent(context)
-        );
+                AlarmManager.ELAPSED_REALTIME,
+                SystemClock.elapsedRealtime() + 60000L,
+                60000L,
+                tickIntent(context));
     }
 
     private static void cancelMinuteUpdates(Context context) {
-        AlarmManager alarm = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-        if (alarm != null) alarm.cancel(tickIntent(context));
+        AlarmManager alarm = (AlarmManager) context.getSystemService(
+                Context.ALARM_SERVICE);
+        if (alarm != null) {
+            alarm.cancel(tickIntent(context));
+        }
     }
 }
