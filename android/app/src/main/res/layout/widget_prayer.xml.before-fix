@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:gravity="center_vertical"
-    android:padding="16dp"
+    android:padding="18dp"
     android:background="@drawable/widget_background">
 
     <LinearLayout
@@ -14,72 +16,52 @@
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
-        <ImageView
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:padding="6dp"
-            android:src="@drawable/ic_widget_crescent_mosque"
-            android:contentDescription="هلال ومسجد" />
-
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginStart="9dp"
             android:orientation="vertical">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="آفاق الإيمان"
+                android:text="@string/app_name"
                 android:textColor="#FFFFFFFF"
-                android:textSize="20sp"
+                android:textSize="17sp"
                 android:textStyle="bold"
-                android:fontFamily="@font/reem_kufi_semibold"
-                android:shadowColor="#A6000000"
-                android:shadowDx="0"
-                android:shadowDy="1"
-                android:shadowRadius="3" />
+                android:fontFamily="serif" />
 
             <TextView
                 android:id="@+id/widget_city"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="1dp"
+                android:layout_marginTop="3dp"
                 android:text="أبوظبي"
-                android:textColor="#E8FFFFFF"
-                android:textSize="13sp"
-                android:fontFamily="sans-serif-medium"
-                android:shadowColor="#99000000"
-                android:shadowDx="0"
-                android:shadowDy="1"
-                android:shadowRadius="3" />
+                android:textColor="#DDF2EDE8"
+                android:textSize="12sp"
+                android:fontFamily="serif" />
+
         </LinearLayout>
 
-        <TextClock
+        <TextView
             android:id="@+id/widget_current_time"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:format12Hour="h:mm:ss a"
-            android:format24Hour="HH:mm:ss"
-            android:textColor="#FFF1D580"
-            android:textSize="18sp"
+            android:text="01:30"
+            android:textColor="#FFF1D887"
+            android:textSize="20sp"
             android:textStyle="bold"
-            android:fontFamily="sans-serif-medium"
-            android:gravity="center"
-            android:shadowColor="#99000000"
-            android:shadowDx="0"
-            android:shadowDy="1"
-            android:shadowRadius="3" />
+            android:fontFamily="sans"
+            android:gravity="center" />
+
     </LinearLayout>
 
-    <TextView
+    <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:layout_marginTop="10dp"
-        android:layout_marginBottom="10dp"
-        android:background="#55FFFFFF"
-        android:text="" />
+        android:layout_marginTop="13dp"
+        android:layout_marginBottom="13dp"
+        android:background="#32FFFFFF" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -97,54 +79,43 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="الصلاة القادمة"
-                android:textColor="#E8FFFFFF"
-                android:textSize="12sp"
-                android:fontFamily="sans-serif-medium"
-                android:shadowColor="#99000000"
-                android:shadowDx="0"
-                android:shadowDy="1"
-                android:shadowRadius="3" />
+                android:textColor="#CDE7E0DC"
+                android:textSize="11sp"
+                android:fontFamily="serif" />
 
             <TextView
                 android:id="@+id/widget_prayer"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="1dp"
+                android:layout_marginTop="2dp"
                 android:text="العصر"
                 android:textColor="#FFFFFFFF"
-                android:textSize="31sp"
+                android:textSize="25sp"
                 android:textStyle="bold"
-                android:fontFamily="@font/reem_kufi_semibold"
-                android:shadowColor="#B8000000"
-                android:shadowDx="0"
-                android:shadowDy="2"
-                android:shadowRadius="4" />
+                android:fontFamily="serif" />
 
             <TextView
                 android:id="@+id/widget_prayer_time"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="1dp"
+                android:layout_marginTop="3dp"
                 android:text="04:15 م"
-                android:textColor="#FFF1D580"
-                android:textSize="15sp"
+                android:textColor="#FFF1D887"
+                android:textSize="14sp"
                 android:textStyle="bold"
-                android:fontFamily="sans-serif-medium"
-                android:shadowColor="#99000000"
-                android:shadowDx="0"
-                android:shadowDy="1"
-                android:shadowRadius="3" />
+                android:fontFamily="serif" />
+
         </LinearLayout>
 
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:minWidth="120dp"
+            android:minWidth="112dp"
             android:orientation="vertical"
             android:gravity="center"
-            android:paddingStart="13dp"
+            android:paddingStart="12dp"
             android:paddingTop="9dp"
-            android:paddingEnd="13dp"
+            android:paddingEnd="12dp"
             android:paddingBottom="9dp"
             android:background="@drawable/widget_countdown_background">
 
@@ -152,9 +123,9 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="الوقت المتبقي"
-                android:textColor="#E8FFFFFF"
-                android:textSize="11sp"
-                android:fontFamily="sans-serif-medium" />
+                android:textColor="#CDE7E0DC"
+                android:textSize="10sp"
+                android:fontFamily="serif" />
 
             <Chronometer
                 android:id="@+id/widget_countdown"
@@ -163,14 +134,13 @@
                 android:layout_marginTop="2dp"
                 android:countDown="true"
                 android:textColor="#FFFFFFFF"
-                android:textSize="21sp"
+                android:textSize="20sp"
                 android:textStyle="bold"
-                android:fontFamily="sans-serif-medium"
-                android:gravity="center"
-                android:shadowColor="#99000000"
-                android:shadowDx="0"
-                android:shadowDy="1"
-                android:shadowRadius="3" />
+                android:fontFamily="monospace"
+                android:gravity="center" />
+
         </LinearLayout>
+
     </LinearLayout>
+
 </LinearLayout>
