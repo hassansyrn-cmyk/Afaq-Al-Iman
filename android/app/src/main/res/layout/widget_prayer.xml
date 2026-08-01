@@ -6,7 +6,7 @@
     android:orientation="vertical"
     android:gravity="center_vertical"
     android:padding="16dp"
-    android:background="@android:color/transparent">
+    android:background="@drawable/widget_background">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -14,10 +14,18 @@
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
+        <ImageView
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:padding="6dp"
+            android:src="@drawable/ic_widget_crescent_mosque"
+            android:contentDescription="هلال ومسجد" />
+
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:layout_marginStart="9dp"
             android:orientation="vertical">
 
             <TextView
@@ -25,10 +33,10 @@
                 android:layout_height="wrap_content"
                 android:text="آفاق الإيمان"
                 android:textColor="#FFFFFFFF"
-                android:textSize="18sp"
+                android:textSize="20sp"
                 android:textStyle="bold"
-                android:fontFamily="sans-serif-medium"
-                android:shadowColor="#99000000"
+                android:fontFamily="cursive"
+                android:shadowColor="#A6000000"
                 android:shadowDx="0"
                 android:shadowDy="1"
                 android:shadowRadius="3" />
@@ -37,9 +45,9 @@
                 android:id="@+id/widget_city"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
+                android:layout_marginTop="1dp"
                 android:text="أبوظبي"
-                android:textColor="#E6FFFFFF"
+                android:textColor="#E8FFFFFF"
                 android:textSize="13sp"
                 android:fontFamily="sans-serif-medium"
                 android:shadowColor="#99000000"
@@ -54,8 +62,8 @@
             android:layout_height="wrap_content"
             android:format12Hour="h:mm:ss a"
             android:format24Hour="HH:mm:ss"
-            android:textColor="#FFF0D57F"
-            android:textSize="19sp"
+            android:textColor="#FFF1D580"
+            android:textSize="18sp"
             android:textStyle="bold"
             android:fontFamily="sans-serif-medium"
             android:gravity="center"
@@ -68,9 +76,9 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:layout_marginTop="11dp"
-        android:layout_marginBottom="11dp"
-        android:background="#66FFFFFF"
+        android:layout_marginTop="10dp"
+        android:layout_marginBottom="10dp"
+        android:background="#55FFFFFF"
         android:text="" />
 
     <LinearLayout
@@ -89,7 +97,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="الصلاة القادمة"
-                android:textColor="#E6FFFFFF"
+                android:textColor="#E8FFFFFF"
                 android:textSize="12sp"
                 android:fontFamily="sans-serif-medium"
                 android:shadowColor="#99000000"
@@ -104,10 +112,10 @@
                 android:layout_marginTop="1dp"
                 android:text="العصر"
                 android:textColor="#FFFFFFFF"
-                android:textSize="28sp"
+                android:textSize="31sp"
                 android:textStyle="bold"
-                android:fontFamily="sans-serif-medium"
-                android:shadowColor="#B3000000"
+                android:fontFamily="cursive"
+                android:shadowColor="#B8000000"
                 android:shadowDx="0"
                 android:shadowDy="2"
                 android:shadowRadius="4" />
@@ -118,7 +126,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="1dp"
                 android:text="04:15 م"
-                android:textColor="#FFF0D57F"
+                android:textColor="#FFF1D580"
                 android:textSize="15sp"
                 android:textStyle="bold"
                 android:fontFamily="sans-serif-medium"
@@ -135,16 +143,16 @@
             android:orientation="vertical"
             android:gravity="center"
             android:paddingStart="13dp"
-            android:paddingTop="10dp"
+            android:paddingTop="9dp"
             android:paddingEnd="13dp"
-            android:paddingBottom="10dp"
+            android:paddingBottom="9dp"
             android:background="@drawable/widget_countdown_background">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="الوقت المتبقي"
-                android:textColor="#E6FFFFFF"
+                android:textColor="#E8FFFFFF"
                 android:textSize="11sp"
                 android:fontFamily="sans-serif-medium" />
 
