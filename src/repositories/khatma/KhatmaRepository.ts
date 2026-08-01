@@ -68,7 +68,9 @@ export class KhatmaRepository {
     const completedDays = plan.history.length;
     const remainingDays = Math.max(0, plan.totalDays - completedDays);
     const pagesRemaining = Math.max(0, TOTAL_PAGES - pagesRead);
-    const percent = TOTAL_PAGES === 0 ? 0 : Math.min(100, Math.round((pagesRead / TOTAL_PAGES) * 100));
+    
+    // تم التعديل هنا وإزالة المقارنة مع الصفر لتجنب خطأ TypeScript TS2367
+    const percent = Math.min(100, Math.round((pagesRead / TOTAL_PAGES) * 100));
 
     const todayStartPage = this.clampPage(pagesRead + 1 > TOTAL_PAGES ? TOTAL_PAGES : pagesRead + 1);
     const todayEndPage = this.clampPage(pagesRead + plan.pagesPerDay);
