@@ -1,0 +1,2047 @@
+﻿============================================================
+AFAQ AL-IMAN PROJECT REPORT
+Generated: 2026-08-01 04:03:43
+Project: C:\Users\hasan\OneDrive\Desktop\Afaq-Al-Iman
+============================================================
+
+================ PROJECT STRUCTURE ================
+
+================ IMPORTANT FILE CONTENTS ================
+
+------------------------------------------------------------
+FILE: package.json
+------------------------------------------------------------
+{"name":"afaq-al-iman","private":true,"version":"1.3.0","type":"module","scripts":{"dev":"vite","build":"tsc && vite build"},"dependencies":{"@capacitor/android":"^7.4.3","@capacitor/core":"^7.4.3","@capacitor/haptics":"^7.0.5","@capacitor/local-notifications":"^7.0.7","@capacitor/status-bar":"^7.0.6","adhan":"^4.4.3","lucide-react":"^0.468.0","react":"^19.1.1","react-dom":"^19.1.1"},"devDependencies":{"@capacitor/cli":"^7.4.3","@types/react":"^19.1.10","@types/react-dom":"^19.1.7","@vitejs/plugin-react":"^4.7.0","typescript":"^5.9.2","vite":"^7.1.7"}}
+
+
+------------------------------------------------------------
+FILE: vite.config.ts
+------------------------------------------------------------
+import{defineConfig}from'vite';import react from'@vitejs/plugin-react';export default defineConfig({plugins:[react()],base:'./'});
+
+
+------------------------------------------------------------
+FILE: tsconfig.json
+------------------------------------------------------------
+{"compilerOptions":{"target":"ES2022","lib":["ES2022","DOM"],"module":"ESNext","moduleResolution":"Bundler","strict":true,"skipLibCheck":true,"noEmit":true,"jsx":"react-jsx","allowSyntheticDefaultImports":true,"esModuleInterop":true},"include":["src"]}
+
+
+------------------------------------------------------------
+FILE: capacitor.config.ts
+------------------------------------------------------------
+import type{CapacitorConfig}from'@capacitor/cli';const config:CapacitorConfig={appId:'com.afaq.iman',appName:'آفاق الإيمان',webDir:'dist',plugins:{StatusBar:{overlaysWebView:false,backgroundColor:'#F5F8F6',style:'LIGHT'},LocalNotifications:{smallIcon:'ic_stat_notify',iconColor:'#0B5D4D'}}};export default config;
+
+
+------------------------------------------------------------
+FILE: src\App.tsx
+------------------------------------------------------------
+import { useEffect, useMemo, useState } from "react";
+import {
+  Home,
+  BookOpen,
+  Library,
+  Search,
+  Settings,
+  Moon,
+  Sun,
+  Bell,
+  Info,
+  Shield,
+  Bookmark,
+  ChevronLeft,
+  X,
+  CalendarDays,
+  MapPin,
+} from "lucide-react";
+import { LocalNotifications } from "@capacitor/local-notifications";
+import { Capacitor } from "@capacitor/core";
+import { hadiths } from "./hadith";
+import { PrayerTimes, Coordinates, CalculationMethod } from "adhan";
+
+type Tab = "home" | "quran" | "plan" | "hadith" | "settings";
+
+type Chapter = {
+  id: number;
+  name: string;
+  transliteration: string;
+  total_verses: number;
+  verses: {
+    id: number;
+    text: string;
+  }[];
+};
+
+type NotificationSettings = {
+  prayer: boolean;
+  adhkar: boolean;
+  wird: boolean;
+  hadith: boolean;
+};
+
+type SectionHeroProps = {
+  image: string;
+  title: string;
+  subtitle?: string;
+  className?: string;
+};
+
+const load = <T,>(key: string, fallback: T): T => {
+  try {
+    return JSON.parse(localStorage.getItem(key) || "") as T;
+  } catch {
+    return fallback;
+  }
+};
+
+const save = (key: string, value: unknown) => {
+  localStorage.setItem(key, JSON.stringify(value));
+};
+
+const asset = (path: string) => `./${path}`;
+
+const prayerHeroImages: Record<string, string> = {
+  fajr: asset("images/home/prayer-fajr.webp"),
+  sunrise: asset("images/home/prayer-sunrise.webp"),
+  dhuhr: asset("images/home/prayer-dhuhr.webp"),
+  asr: asset("images/home/prayer-asr.webp"),
+  maghrib: asset("images/home/prayer-maghrib.webp"),
+  isha: asset("images/home/prayer-isha.webp"),
+};
+
+const sectionHeroImages = {
+  home: asset("images/home/prayer-hero.webp"),
+  quran: asset("images/quran/quran-hero.webp"),
+  khatma: asset("images/khatma/khatma-hero.webp"),
+  hadith: asset("images/hadith/hadith-hero.webp"),
+};
+
+const suras = [
+  "الفاتحة",
+  "البقرة",
+  "آل عمران",
+  "النساء",
+  "المائدة",
+  "الأنعام",
+  "الأعراف",
+  "الأنفال",
+  "التوبة",
+  "يونس",
+  "هود",
+  "يوسف",
+  "الرعد",
+  "إبراهيم",
+  "الحجر",
+  "النحل",
+  "الإسراء",
+  "الكهف",
+  "مريم",
+  "طه",
+  "الأنبياء",
+  "الحج",
+  "المؤمنون",
+  "النور",
+  "الفرقان",
+  "الشعراء",
+  "النمل",
+  "القصص",
+  "العنكبوت",
+  "الروم",
+  "لقمان",
+  "السجدة",
+  "الأحزاب",
+  "سبأ",
+  "فاطر",
+  "يس",
+  "الصافات",
+  "ص",
+  "الزمر",
+  "غافر",
+  "فصلت",
+  "الشورى",
+  "الزخرف",
+  "الدخان",
+  "الجاثية",
+  "الأحقاف",
+  "محمد",
+  "الفتح",
+  "الحجرات",
+  "ق",
+  "الذاريات",
+  "الطور",
+  "النجم",
+  "القمر",
+  "الرحمن",
+  "الواقعة",
+  "الحديد",
+  "المجادلة",
+  "الحشر",
+  "الممتحنة",
+  "الصف",
+  "الجمعة",
+  "المنافقون",
+  "التغابن",
+  "الطلاق",
+  "التحريم",
+  "الملك",
+  "القلم",
+  "الحاقة",
+  "المعارج",
+  "نوح",
+  "الجن",
+  "المزمل",
+  "المدثر",
+  "القيامة",
+  "الإنسان",
+  "المرسلات",
+  "النبأ",
+  "النازعات",
+  "عبس",
+  "التكوير",
+  "الانفطار",
+  "المطففين",
+  "الانشقاق",
+  "البروج",
+  "الطارق",
+  "الأعلى",
+  "الغاشية",
+  "الفجر",
+  "البلد",
+  "الشمس",
+  "الليل",
+  "الضحى",
+  "الشرح",
+  "التين",
+  "العلق",
+  "القدر",
+  "البينة",
+  "الزلزلة",
+  "العاديات",
+  "القارعة",
+  "التكاثر",
+  "العصر",
+  "الهمزة",
+  "الفيل",
+  "قريش",
+  "الماعون",
+  "الكوثر",
+  "الكافرون",
+  "النصر",
+  "المسد",
+  "الإخلاص",
+  "الفلق",
+  "الناس",
+];
+
+function SectionHero({
+  image,
+  title,
+  subtitle,
+  className = "",
+}: SectionHeroProps) {
+  return (
+    <section
+      className={`sectionHero ${className}`}
+      style={{
+        backgroundImage: `
+          linear-gradient(
+            90deg,
+            rgba(2, 28, 23, 0.90) 0%,
+            rgba(4, 49, 40, 0.62) 52%,
+            rgba(4, 49, 40, 0.18) 100%
+          ),
+          url("${image}")
+        `,
+      }}
+    >
+      <div className="sectionHeroContent">
+        <h1>{title}</h1>
+        {subtitle && <p>{subtitle}</p>}
+      </div>
+    </section>
+  );
+}
+
+export default function App() {
+  const [tab, setTab] = useState<Tab>("home");
+  const [dark, setDark] = useState(() => load("dark", false));
+  const [chapter, setChapter] = useState<Chapter | null>(null);
+  const [bookmark, setBookmark] = useState(() =>
+    load("bookmark", { sura: 1, ayah: 1, name: "الفاتحة" }),
+  );
+  const [goal, setGoal] = useState(() => load("goal", 30));
+  const [done, setDone] = useState(() => load("done", 0));
+  const [query, setQuery] = useState("");
+  const [detail, setDetail] = useState<{
+    sura: number;
+    ayah: number;
+    text: string;
+  } | null>(null);
+  const [notifs, setNotifs] = useState<NotificationSettings>(() =>
+    load("notifs", {
+      prayer: true,
+      adhkar: true,
+      wird: true,
+      hadith: true,
+    }),
+  );
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = dark ? "dark" : "light";
+    save("dark", dark);
+  }, [dark]);
+
+  const todayPrayerTimes = useMemo(() => {
+    return new PrayerTimes(
+      new Coordinates(24.4539, 54.3773),
+      new Date(),
+      CalculationMethod.Dubai(),
+    );
+  }, []);
+
+  const nextPrayer = useMemo(() => {
+    const now = new Date();
+    const prayers = [
+      { key: "fajr", name: "الفجر", time: todayPrayerTimes.fajr },
+      { key: "sunrise", name: "الشروق", time: todayPrayerTimes.sunrise },
+      { key: "dhuhr", name: "الظهر", time: todayPrayerTimes.dhuhr },
+      { key: "asr", name: "العصر", time: todayPrayerTimes.asr },
+      { key: "maghrib", name: "المغرب", time: todayPrayerTimes.maghrib },
+      { key: "isha", name: "العشاء", time: todayPrayerTimes.isha },
+    ];
+
+    const upcomingPrayer = prayers.find((prayer) => prayer.time > now);
+
+    if (upcomingPrayer) {
+      return upcomingPrayer;
+    }
+
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
+
+    const tomorrowPrayerTimes = new PrayerTimes(
+      new Coordinates(24.4539, 54.3773),
+      tomorrow,
+      CalculationMethod.Dubai(),
+    );
+
+    return {
+      key: "fajr",
+      name: "الفجر",
+      time: tomorrowPrayerTimes.fajr,
+    };
+  }, [todayPrayerTimes]);
+
+  const formatPrayerTime = (date: Date) => {
+    return date.toLocaleTimeString("ar-AE", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  async function openSura(id: number) {
+    const response = await fetch(`./quran/${id}.json`);
+
+    if (!response.ok) {
+      throw new Error(`Failed to load sura ${id}`);
+    }
+
+    const chapterData = (await response.json()) as Chapter;
+    setChapter(chapterData);
+  }
+
+  async function schedule() {
+    if (!Capacitor.isNativePlatform()) {
+      alert("الإشعارات المحلية تعمل داخل تطبيق Android.");
+      return;
+    }
+
+    const permission = await LocalNotifications.requestPermissions();
+
+    if (permission.display !== "granted") {
+      alert("لم يتم منح إذن الإشعارات.");
+      return;
+    }
+
+    const now = new Date();
+    const notifications: any[] = [];
+
+    if (notifs.prayer) {
+      for (let day = 0; day < 7; day += 1) {
+        const date = new Date(now);
+        date.setDate(now.getDate() + day);
+
+        const prayerTimes = new PrayerTimes(
+          new Coordinates(24.4539, 54.3773),
+          date,
+          CalculationMethod.Dubai(),
+        );
+
+        const prayers = [
+          ["الفجر", prayerTimes.fajr],
+          ["الظهر", prayerTimes.dhuhr],
+          ["العصر", prayerTimes.asr],
+          ["المغرب", prayerTimes.maghrib],
+          ["العشاء", prayerTimes.isha],
+        ] as const;
+
+        prayers.forEach((prayer, index) => {
+          if (prayer[1] > now) {
+            notifications.push({
+              id: 4000 + day * 10 + index,
+              title: `حان وقت صلاة ${prayer[0]}`,
+              body: "تقبل الله طاعتكم",
+              schedule: {
+                at: prayer[1],
+                allowWhileIdle: true,
+              },
+              channelId: "prayer",
+            });
+          }
+        });
+      }
+    }
+
+    await LocalNotifications.createChannel({
+      id: "prayer",
+      name: "مواقيت الصلاة",
+      importance: 5,
+    });
+
+    for (let index = 1; index <= 14; index += 1) {
+      const scheduledDate = new Date(now);
+      scheduledDate.setDate(now.getDate() + index);
+
+      if (notifs.wird) {
+        scheduledDate.setHours(20, 0, 0, 0);
+        notifications.push({
+          id: 1000 + index,
+          title: "وردك اليومي",
+          body: "خصص دقائق لورد القرآن اليوم",
+          schedule: { at: new Date(scheduledDate) },
+          channelId: "reminders",
+        });
+      }
+
+      if (notifs.adhkar) {
+        scheduledDate.setHours(7, 0, 0, 0);
+        notifications.push({
+          id: 2000 + index,
+          title: "أذكار الصباح",
+          body: "ابدأ يومك بذكر الله",
+          schedule: { at: new Date(scheduledDate) },
+          channelId: "reminders",
+        });
+      }
+
+      if (notifs.hadith) {
+        scheduledDate.setHours(12, 0, 0, 0);
+        const hadith = hadiths[index % hadiths.length];
+
+        notifications.push({
+          id: 3000 + index,
+          title: "حديث اليوم",
+          body: hadith[0],
+          schedule: { at: new Date(scheduledDate) },
+          channelId: "reminders",
+        });
+      }
+    }
+
+    await LocalNotifications.createChannel({
+      id: "reminders",
+      name: "التذكيرات اليومية",
+      importance: 4,
+    });
+
+    await LocalNotifications.schedule({
+      notifications,
+    });
+
+    alert("تمت جدولة التذكيرات للأيام القادمة");
+  }
+
+  const daily = Math.ceil(604 / goal);
+  const start = Math.min(604, done * daily + 1);
+  const end = Math.min(604, start + daily - 1);
+  const progress = Math.min(100, Math.round((done / goal) * 100));
+
+  const filtered = hadiths.filter((hadith) =>
+    `${hadith[0]} ${hadith[1]} ${hadith[2]}`
+      .toLowerCase()
+      .includes(query.toLowerCase()),
+  );
+
+  return (
+    <div className="app">
+      <header>
+        <div className="brand">
+          <b>أ</b>
+          <span>
+            <strong>آفاق الإيمان</strong>
+            <small>رحلة إيمانية يومية</small>
+          </span>
+        </div>
+
+        <button
+          className="round"
+          onClick={() => setDark(!dark)}
+          aria-label={dark ? "تفعيل الوضع الفاتح" : "تفعيل الوضع الليلي"}
+        >
+          {dark ? <Sun /> : <Moon />}
+        </button>
+      </header>
+
+      <main>
+        {tab === "home" && (
+          <>
+            <section
+              className="prayerHero"
+              style={{
+                backgroundImage: `
+                  linear-gradient(
+                    90deg,
+                    rgba(2, 28, 23, 0.90) 0%,
+                    rgba(4, 49, 40, 0.66) 48%,
+                    rgba(4, 49, 40, 0.22) 100%
+                  ),
+                  url("${prayerHeroImages[nextPrayer.key] ?? sectionHeroImages.home}")
+                `,
+              }}
+            >
+              <div className="prayerHeroContent">
+                <span className="heroEyebrow">الصلاة القادمة</span>
+                <h1>{nextPrayer.name}</h1>
+                <strong>{formatPrayerTime(nextPrayer.time)}</strong>
+
+                <div className="heroLocation">
+                  <MapPin size={16} />
+                  <span>أبوظبي</span>
+                </div>
+              </div>
+            </section>
+
+            <section className="hero wirdHero">
+              <div>
+                <small>ورد اليوم</small>
+                <h1>
+                  صفحة {start} إلى {end}
+                </h1>
+                <p>خطة مرنة لختم القرآن خلال {goal} يوماً</p>
+              </div>
+
+              <div className="orb">{progress}%</div>
+
+              <button
+                onClick={() => {
+                  const nextDone = Math.min(goal, done + 1);
+                  setDone(nextDone);
+                  save("done", nextDone);
+                }}
+                disabled={progress >= 100}
+              >
+                {progress >= 100 ? "أكملت الختمة" : "تسجيل الإنجاز"}
+              </button>
+            </section>
+
+            <section className="quick">
+              <button onClick={() => setTab("quran")}>
+                <BookOpen />
+                المصحف
+              </button>
+
+              <button onClick={() => setTab("hadith")}>
+                <Library />
+                الأحاديث
+              </button>
+
+              <button onClick={() => setTab("plan")}>
+                <CalendarDays />
+                الختمة
+              </button>
+            </section>
+
+            <section className="glass">
+              <small>آخر قراءة</small>
+              <h2>
+                سورة {bookmark.name} • الآية {bookmark.ayah}
+              </h2>
+
+              <button
+                onClick={() => {
+                  setTab("quran");
+                  void openSura(bookmark.sura);
+                }}
+              >
+                متابعة القراءة
+                <ChevronLeft />
+              </button>
+            </section>
+
+            <section className="glass">
+              <small>حديث اليوم</small>
+              <blockquote>
+                «{hadiths[new Date().getDate() % hadiths.length][0]}»
+              </blockquote>
+              <em>{hadiths[new Date().getDate() % hadiths.length][2]}</em>
+            </section>
+          </>
+        )}
+
+        {tab === "quran" && (
+          <>
+            {chapter ? (
+              <Reader
+                c={chapter}
+                mark={(ayah, text) => {
+                  const nextBookmark = {
+                    sura: chapter.id,
+                    ayah,
+                    name: chapter.name,
+                  };
+
+                  setBookmark(nextBookmark);
+                  save("bookmark", nextBookmark);
+                  setDetail({
+                    sura: chapter.id,
+                    ayah,
+                    text,
+                  });
+                }}
+                back={() => setChapter(null)}
+              />
+            ) : (
+              <>
+                <SectionHero
+                  className="quranHero"
+                  image={sectionHeroImages.quran}
+                  title="القرآن الكريم"
+                  subtitle="اقرأ واحفظ موضعك وتابع وردك اليومي"
+                />
+
+                <div className="suras">
+                  {suras.map((name, index) => (
+                    <button key={name} onClick={() => void openSura(index + 1)}>
+                      <b>{index + 1}</b>
+                      <span>
+                        {name}
+                        <small>سورة رقم {index + 1}</small>
+                      </span>
+                      <ChevronLeft />
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {tab === "plan" && (
+          <>
+            <SectionHero
+              className="khatmaHero"
+              image={sectionHeroImages.khatma}
+              title="خطة الختمة"
+              subtitle="خطة مرنة تساعدك على إتمام القرآن بخطوات منتظمة"
+            />
+
+            <section className="glass">
+              <label>
+                مدة الختمة
+                <input
+                  type="range"
+                  min="7"
+                  max="365"
+                  value={goal}
+                  onChange={(event) => {
+                    const nextGoal = Number(event.target.value);
+                    setGoal(nextGoal);
+                    save("goal", nextGoal);
+                  }}
+                />
+              </label>
+
+              <div className="planStats">
+                <div>
+                  <b>{goal}</b>
+                  <span>يوماً</span>
+                </div>
+
+                <div>
+                  <b>{daily}</b>
+                  <span>صفحة يومياً</span>
+                </div>
+
+                <div>
+                  <b>{progress}%</b>
+                  <span>مكتمل</span>
+                </div>
+              </div>
+
+              <button
+                className="primary"
+                onClick={() => {
+                  setDone(0);
+                  save("done", 0);
+                }}
+              >
+                بدء خطة جديدة
+              </button>
+            </section>
+          </>
+        )}
+
+        {tab === "hadith" && (
+          <>
+            <SectionHero
+              className="hadithHero"
+              image={sectionHeroImages.hadith}
+              title="أحاديث الصحيحين"
+              subtitle="تصفح وابحث في الأحاديث الموثقة"
+            />
+
+            <label className="search hadithSearch">
+              <Search />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="ابحث في نص الحديث أو المصدر"
+              />
+            </label>
+
+            {filtered.map((hadith) => (
+              <article className="hadith" key={`${hadith[2]}-${hadith[0]}`}>
+                <p>«{hadith[0]}»</p>
+                <small>{hadith[2]}</small>
+              </article>
+            ))}
+          </>
+        )}
+
+        {tab === "settings" && (
+          <>
+            <div className="title">
+              <h1>الإعدادات</h1>
+            </div>
+
+            <section className="glass settings">
+              <label>
+                <Moon />
+                الوضع الليلي
+                <input
+                  type="checkbox"
+                  checked={dark}
+                  onChange={() => setDark(!dark)}
+                />
+              </label>
+
+              <h3>التحكم بالإشعارات</h3>
+
+              {Object.entries(notifs).map(([key, value]) => (
+                <label key={key}>
+                  <Bell />
+                  {key === "prayer"
+                    ? "الصلاة"
+                    : key === "adhkar"
+                      ? "الأذكار"
+                      : key === "wird"
+                        ? "الورد اليومي"
+                        : "حديث عشوائي"}
+
+                  <input
+                    type="checkbox"
+                    checked={value}
+                    onChange={() => {
+                      const nextNotifications = {
+                        ...notifs,
+                        [key]: !value,
+                      };
+
+                      setNotifs(nextNotifications);
+                      save("notifs", nextNotifications);
+                    }}
+                  />
+                </label>
+              ))}
+
+              <button className="primary" onClick={() => void schedule()}>
+                تفعيل وجدولة الإشعارات
+              </button>
+
+              <button className="link">
+                <Shield />
+                سياسة الخصوصية
+              </button>
+
+              <button className="link">
+                <Info />
+                حول البرنامج
+              </button>
+            </section>
+          </>
+        )}
+      </main>
+
+      <nav>
+        {(
+          [
+            ["home", Home, "الرئيسية"],
+            ["quran", BookOpen, "القرآن"],
+            ["plan", CalendarDays, "الختمة"],
+            ["hadith", Library, "الأحاديث"],
+            ["settings", Settings, "المزيد"],
+          ] as const
+        ).map(([key, Icon, label]) => (
+          <button
+            key={key}
+            className={tab === key ? "on" : ""}
+            onClick={() => {
+              setTab(key);
+
+              if (key !== "quran") {
+                setChapter(null);
+              }
+            }}
+          >
+            <Icon />
+            <span>{label}</span>
+          </button>
+        ))}
+      </nav>
+
+      {detail && (
+        <div className="modal">
+          <div className="sheet">
+            <button className="close" onClick={() => setDetail(null)}>
+              <X />
+            </button>
+
+            <Bookmark />
+            <h2>حفظ موضع القراءة</h2>
+            <p>
+              تم حفظ الآية {detail.ayah} من سورة {suras[detail.sura - 1]}.
+            </p>
+
+            <h3>شرح الآية</h3>
+            <p className="muted">
+              التفسير وسبب النزول يحتاجان اتصالاً بمصدر تفسير معتمد. لم يتم
+              توليد شرح آلي للنص القرآني.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Reader({
+  c,
+  mark,
+  back,
+}: {
+  c: Chapter;
+  mark: (ayah: number, text: string) => void;
+  back: () => void;
+}) {
+  return (
+    <>
+      <div className="readerHead">
+        <button onClick={back}>×</button>
+        <div>
+          <h1>سورة {c.name}</h1>
+          <small>{c.total_verses} آيات</small>
+        </div>
+      </div>
+
+      <div className="verses">
+        {c.verses.map((verse) => (
+          <article key={verse.id}>
+            <button className="aya" onClick={() => mark(verse.id, verse.text)}>
+              {verse.id}
+            </button>
+
+            <p>
+              {verse.text} <span>﴿{verse.id}﴾</span>
+            </p>
+
+            <button
+              className="explain"
+              onClick={() => mark(verse.id, verse.text)}
+            >
+              <Bookmark />
+              حفظ وشرح
+            </button>
+          </article>
+        ))}
+      </div>
+    </>
+  );
+}
+
+
+------------------------------------------------------------
+FILE: src\styles.css
+------------------------------------------------------------
+:root {
+  font-family: Arial, "Noto Sans Arabic", sans-serif;
+  --bg: #f3f7f5;
+  --card: #ffffffcc;
+  --text: #14342e;
+  --muted: #74847e;
+  --green: #0a5b4b;
+  --gold: #d4b35a;
+  --line: #dce6e1;
+}
+
+html[data-theme="dark"] {
+  --bg: #071713;
+  --card: #102923dd;
+  --text: #eef8f4;
+  --muted: #a5b8b1;
+  --green: #35a589;
+  --gold: #e2c46b;
+  --line: #24463e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+  color: var(--text);
+  background: var(--bg);
+}
+
+body {
+  background:
+    radial-gradient(circle at 20% 0, #d5b86018, transparent 30%),
+    var(--bg);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.app {
+  max-width: 640px;
+  min-height: 100vh;
+  margin: auto;
+  padding-bottom: 90px;
+}
+
+header {
+  position: sticky;
+  z-index: 10;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 78px;
+  padding: 11px 18px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.brand,
+.brand span {
+  display: flex;
+  align-items: center;
+}
+
+.brand > b {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border-radius: 16px;
+  color: var(--gold);
+  background: linear-gradient(145deg, #073f35, #08715c);
+  box-shadow: 0 8px 22px #002b2260;
+  font-size: 25px;
+}
+
+.brand span {
+  flex-direction: column;
+  align-items: flex-start;
+  margin-inline-start: 10px;
+}
+
+.brand small,
+.title p,
+.muted {
+  color: var(--muted);
+}
+
+.round {
+  display: grid;
+  width: 43px;
+  height: 43px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--text);
+  background: var(--card);
+}
+
+.round svg {
+  width: 20px;
+}
+
+main {
+  padding: 18px;
+}
+
+/* صورة الصلاة القادمة */
+.prayerHero {
+  position: relative;
+  min-height: 250px;
+  padding: 26px;
+  overflow: hidden;
+  border-radius: 29px;
+  color: #fff;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  box-shadow:
+    0 18px 40px rgba(2, 36, 29, 0.28),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  transition:
+    background-image 300ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.prayerHero:active {
+  transform: scale(0.995);
+}
+
+.prayerHero::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  background: radial-gradient(
+    circle at 75% 30%,
+    rgba(242, 208, 121, 0.2),
+    transparent 42%
+  );
+}
+
+.prayerHeroContent {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  min-height: 198px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.heroEyebrow {
+  padding: 7px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  font-size: 13px;
+}
+
+.prayerHero h1 {
+  margin: 18px 0 4px;
+  font-size: clamp(38px, 10vw, 50px);
+  line-height: 1.1;
+}
+
+.prayerHero strong {
+  color: #f2d17d;
+  font-size: clamp(26px, 7vw, 34px);
+}
+
+.heroLocation {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 15px;
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 13px;
+}
+
+/* بطاقة الورد الحالية */
+.hero {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 15px;
+  padding: 25px;
+  border-radius: 29px;
+  color: #fff;
+  background: linear-gradient(145deg, #073f35dd, #08715cee);
+  box-shadow: 0 20px 45px #002c2250;
+}
+
+.wirdHero {
+  margin-top: 16px;
+}
+
+.hero h1 {
+  margin: 8px 0;
+  font-size: 30px;
+}
+
+.hero p {
+  opacity: 0.75;
+}
+
+.orb {
+  display: grid;
+  width: 76px;
+  height: 76px;
+  place-items: center;
+  border: 8px solid #ffffff22;
+  border-radius: 50%;
+  color: #f0d17b;
+  background: #ffffff14;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.hero button {
+  grid-column: 1 / -1;
+  padding: 14px;
+  border: 0;
+  border-radius: 15px;
+  color: #17352d;
+  background: linear-gradient(90deg, #d2ad4e, #ead486);
+  font-weight: bold;
+}
+
+.quick {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 15px 0;
+}
+
+.quick button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 16px 5px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  color: var(--text);
+  background: var(--card);
+  box-shadow: 0 8px 20px #082d240c;
+}
+
+.quick svg {
+  color: var(--green);
+}
+
+.glass,
+.hadith {
+  margin: 14px 0;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 23px;
+  background: var(--card);
+  box-shadow: 0 12px 30px #002c2212;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.glass h2 {
+  margin: 7px 0;
+}
+
+.glass > button:not(.primary),
+.link {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  color: var(--green);
+  background: none;
+}
+
+.glass blockquote,
+.hadith p {
+  margin: 10px 0;
+  font-size: 18px;
+  line-height: 1.85;
+}
+
+.glass em,
+.hadith small {
+  color: var(--muted);
+}
+
+/* أغلفة الأقسام */
+.sectionHero {
+  position: relative;
+  min-height: 190px;
+  margin-bottom: 18px;
+  padding: 24px;
+  overflow: hidden;
+  border-radius: 26px;
+  color: #fff;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  box-shadow:
+    0 15px 34px rgba(3, 40, 32, 0.2),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.sectionHero::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(4, 42, 34, 0.05),
+    rgba(4, 42, 34, 0.3)
+  );
+}
+
+.sectionHeroContent {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  min-height: 142px;
+  max-width: 72%;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.sectionHero h1 {
+  margin: 0;
+  font-size: clamp(27px, 8vw, 38px);
+  line-height: 1.15;
+}
+
+.sectionHero p {
+  margin: 9px 0 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.quranHero {
+  background-position: center 58%;
+}
+
+.khatmaHero {
+  background-position: center 68%;
+}
+
+.hadithHero {
+  background-position: center 60%;
+}
+
+.title h1 {
+  margin: 8px 0;
+  font-size: 34px;
+}
+
+.suras {
+  display: grid;
+  gap: 8px;
+}
+
+.suras > button {
+  display: grid;
+  grid-template-columns: 43px 1fr auto;
+  align-items: center;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  color: var(--text);
+  background: var(--card);
+  text-align: start;
+}
+
+.suras > button > b {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid var(--gold);
+  border-radius: 9px;
+  transform: rotate(45deg);
+}
+
+.suras > button > b::first-line {
+  transform: rotate(-45deg);
+}
+
+.suras span {
+  display: flex;
+  flex-direction: column;
+  margin-inline-start: 10px;
+  font-weight: bold;
+}
+
+.suras small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-weight: normal;
+}
+
+.planStats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9px;
+  margin: 18px 0;
+}
+
+.planStats div {
+  padding: 14px 5px;
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--green) 8%, transparent);
+  text-align: center;
+}
+
+.planStats b,
+.planStats span {
+  display: block;
+}
+
+.planStats b {
+  color: var(--green);
+  font-size: 23px;
+}
+
+input[type="range"] {
+  width: 100%;
+  margin-top: 14px;
+  accent-color: var(--green);
+}
+
+.primary {
+  width: 100%;
+  padding: 14px;
+  border: 0;
+  border-radius: 14px;
+  color: #fff;
+  background: var(--green);
+  font-weight: bold;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--card);
+}
+
+.search input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  color: var(--text);
+  background: transparent;
+}
+
+.settings > label {
+  display: grid;
+  grid-template-columns: 25px 1fr auto;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.settings input {
+  width: 21px;
+  height: 21px;
+  accent-color: var(--green);
+}
+
+.link {
+  width: 100%;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line) !important;
+}
+
+.readerHead {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.readerHead > button,
+.close {
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 50%;
+  color: var(--text);
+  background: var(--card);
+  font-size: 24px;
+}
+
+.readerHead h1 {
+  margin: 0;
+}
+
+.verses article {
+  position: relative;
+  margin: 12px 0;
+  padding: 22px 17px;
+  border: 1px solid var(--line);
+  border-radius: 21px;
+  background: var(--card);
+}
+
+.verses p {
+  font-size: 25px;
+  line-height: 2.15;
+  text-align: justify;
+}
+
+.verses p span {
+  color: var(--gold);
+}
+
+.aya {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--green);
+}
+
+.explain {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 11px;
+  color: var(--green);
+  background: color-mix(in srgb, var(--green) 10%, transparent);
+}
+
+.explain svg {
+  width: 16px;
+}
+
+.modal {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  background: #0008;
+}
+
+.sheet {
+  width: 100%;
+  max-width: 640px;
+  min-height: 35vh;
+  margin: auto;
+  padding: 25px;
+  border-radius: 28px 28px 0 0;
+  background: var(--bg);
+}
+
+.close {
+  float: left;
+}
+
+nav {
+  position: fixed;
+  z-index: 20;
+  bottom: 0;
+  left: 50%;
+  display: flex;
+  width: 100%;
+  max-width: 640px;
+  height: calc(78px + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  justify-content: space-around;
+  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--card) 96%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  transform: translateX(-50%);
+}
+
+nav button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 0;
+  color: var(--muted);
+  background: none;
+}
+
+nav svg {
+  width: 21px;
+}
+
+nav .on {
+  color: var(--green);
+  font-weight: bold;
+}
+
+html[dir="ltr"] .prayerHeroContent,
+html[dir="ltr"] .sectionHeroContent {
+  align-items: flex-start;
+  text-align: left;
+}
+
+@media (max-width: 390px) {
+  main {
+    padding: 12px;
+  }
+
+  .prayerHero {
+    min-height: 225px;
+    padding: 20px;
+  }
+
+  .prayerHeroContent {
+    min-height: 178px;
+  }
+
+  .sectionHero {
+    min-height: 170px;
+    padding: 19px;
+  }
+
+  .sectionHeroContent {
+    min-height: 130px;
+    max-width: 82%;
+  }
+
+  .hero h1 {
+    font-size: 26px;
+  }
+
+  .verses p {
+    font-size: 22px;
+  }
+
+  .quick button {
+    font-size: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prayerHero {
+    transition: none;
+  }
+}
+
+
+------------------------------------------------------------
+FILE: src\main.tsx
+------------------------------------------------------------
+import React from'react';import{createRoot}from'react-dom/client';import App from'./App';import'./styles.css';createRoot(document.getElementById('root')!).render(<App/>);
+
+
+------------------------------------------------------------
+FILE: src\cities.ts
+------------------------------------------------------------
+[FILE NOT FOUND]
+
+------------------------------------------------------------
+FILE: src\data.ts
+------------------------------------------------------------
+[FILE NOT FOUND]
+
+------------------------------------------------------------
+FILE: src\hadith.ts
+------------------------------------------------------------
+export const hadiths=[
+['إنما الأعمال بالنيات، وإنما لكل امرئ ما نوى.','Actions are judged by intentions.','صحيح البخاري 1، صحيح مسلم 1907'],['المسلم من سلم المسلمون من لسانه ويده.','A Muslim is one from whose tongue and hand Muslims are safe.','صحيح البخاري 10، صحيح مسلم 40'],['لا يؤمن أحدكم حتى يحب لأخيه ما يحب لنفسه.','None of you truly believes until he loves for his brother what he loves for himself.','صحيح البخاري 13، صحيح مسلم 45'],['من كان يؤمن بالله واليوم الآخر فليقل خيراً أو ليصمت.','Whoever believes in Allah and the Last Day should speak good or remain silent.','صحيح البخاري 6018، صحيح مسلم 47'],['الكلمة الطيبة صدقة.','A good word is charity.','صحيح البخاري 2989، صحيح مسلم 1009'],['يسروا ولا تعسروا، وبشروا ولا تنفروا.','Make things easy and do not make them difficult.','صحيح البخاري 69، صحيح مسلم 1734'],['الدين النصيحة.','Religion is sincere counsel.','صحيح مسلم 55'],['الطهور شطر الإيمان.','Purification is half of faith.','صحيح مسلم 223'],['لا تغضب.','Do not become angry.','صحيح البخاري 6116'],['من لا يرحم لا يرحم.','Whoever does not show mercy will not be shown mercy.','صحيح البخاري 6013، صحيح مسلم 2319'],['خيركم من تعلم القرآن وعلمه.','The best of you are those who learn the Quran and teach it.','صحيح البخاري 5027'],['إن الله جميل يحب الجمال.','Allah is beautiful and loves beauty.','صحيح مسلم 91'],['البر حسن الخلق.','Righteousness is good character.','صحيح مسلم 2553'],['من غشنا فليس منا.','Whoever deceives us is not one of us.','صحيح مسلم 101'],['الحياء من الإيمان.','Modesty is part of faith.','صحيح البخاري 24، صحيح مسلم 36']
+]as const;
+
+
+------------------------------------------------------------
+FILE: src\i18n.ts
+------------------------------------------------------------
+[FILE NOT FOUND]
+
+------------------------------------------------------------
+FILE: .github\workflows\android-debug.yml
+------------------------------------------------------------
+name: Build Android Debug APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22, cache: npm}
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: 21, cache: gradle}
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - run: npm ci
+      - run: npm run build
+      - run: npx cap sync android
+      - working-directory: android
+        run: chmod +x gradlew && ./gradlew assembleDebug
+      - uses: actions/upload-artifact@v4
+        with: {name: afaq-al-iman-debug-apk, path: android/app/build/outputs/apk/debug/app-debug.apk, if-no-files-found: error}
+
+
+------------------------------------------------------------
+FILE: android\variables.gradle
+------------------------------------------------------------
+ext {
+    minSdkVersion = 23
+    compileSdkVersion = 36
+    targetSdkVersion = 36
+    androidxActivityVersion = '1.9.2'
+    androidxAppCompatVersion = '1.7.0'
+    androidxCoordinatorLayoutVersion = '1.2.0'
+    androidxCoreVersion = '1.15.0'
+    androidxFragmentVersion = '1.8.4'
+    coreSplashScreenVersion = '1.0.1'
+    androidxWebkitVersion = '1.12.1'
+    junitVersion = '4.13.2'
+    androidxJunitVersion = '1.2.1'
+    androidxEspressoCoreVersion = '3.6.1'
+    cordovaAndroidVersion = '10.1.1'
+}
+
+------------------------------------------------------------
+FILE: android\app\build.gradle
+------------------------------------------------------------
+apply plugin: 'com.android.application'
+
+android {
+    namespace "com.afaq.iman"
+    compileSdk rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "com.afaq.iman"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}
+
+
+------------------------------------------------------------
+FILE: android\app\src\main\AndroidManifest.xml
+------------------------------------------------------------
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+
+        <activity
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation"
+            android:name=".MainActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:launchMode="singleTask"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+        </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths"></meta-data>
+        </provider>
+    </application>
+
+    <!-- Permissions -->
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+</manifest>
+
+
+------------------------------------------------------------
+FILE: android\app\src\main\java\com\afaq\iman\MainActivity.java
+------------------------------------------------------------
+package com.afaq.iman;
+
+import com.getcapacitor.BridgeActivity;
+
+public class MainActivity extends BridgeActivity {}
+
+
+------------------------------------------------------------
+FILE: android\app\src\main\res\values\styles.xml
+------------------------------------------------------------
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+    </style>
+
+    <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:background">@null</item>
+    </style>
+
+
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <item name="android:background">@drawable/splash</item>
+    </style>
+</resources>
+
+------------------------------------------------------------
+FILE: android\app\src\main\res\values\themes.xml
+------------------------------------------------------------
+[FILE NOT FOUND]
+
+------------------------------------------------------------
+FILE: android\app\src\main\res\values\strings.xml
+------------------------------------------------------------
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">آفاق الإيمان</string>
+    <string name="title_activity_main">آفاق الإيمان</string>
+    <string name="package_name">com.afaq.iman</string>
+    <string name="custom_url_scheme">com.afaq.iman</string>
+</resources>
+
+
+================ IMAGE ASSETS ================
+public\privacy.html (1202 bytes)
+public\images\adhkar\adhkar-hero.webp (99168 bytes)
+public\images\hadith\hadith-hero.webp (148492 bytes)
+public\images\home\prayer-asr.webp (100182 bytes)
+public\images\home\prayer-dhuhr.webp (38696 bytes)
+public\images\home\prayer-fajr.webp (18816 bytes)
+public\images\home\prayer-hero.webp (116908 bytes)
+public\images\home\prayer-isha.webp (34960 bytes)
+public\images\home\prayer-maghrib.webp (51046 bytes)
+public\images\home\prayer-sunrise.webp (60846 bytes)
+public\images\khatma\khatma-hero.webp (72856 bytes)
+public\images\qibla\qibla-hero.webp (69844 bytes)
+public\images\quran\quran-hero.webp (145190 bytes)
+public\quran\1.json (1194 bytes)
+public\quran\10.json (49436 bytes)
+public\quran\100.json (1554 bytes)
+public\quran\101.json (1448 bytes)
+public\quran\102.json (1169 bytes)
+public\quran\103.json (628 bytes)
+public\quran\104.json (1294 bytes)
+public\quran\105.json (874 bytes)
+public\quran\106.json (712 bytes)
+public\quran\107.json (1051 bytes)
+public\quran\108.json (484 bytes)
+public\quran\109.json (914 bytes)
+public\quran\11.json (51575 bytes)
+public\quran\110.json (688 bytes)
+public\quran\111.json (790 bytes)
+public\quran\112.json (555 bytes)
+public\quran\113.json (752 bytes)
+public\quran\114.json (796 bytes)
+public\quran\12.json (47883 bytes)
+public\quran\13.json (23007 bytes)
+public\quran\14.json (23181 bytes)
+public\quran\15.json (20867 bytes)
+public\quran\16.json (51741 bytes)
+public\quran\17.json (43630 bytes)
+public\quran\18.json (43274 bytes)
+public\quran\19.json (27596 bytes)
+public\quran\2.json (166556 bytes)
+public\quran\20.json (37616 bytes)
+public\quran\21.json (34291 bytes)
+public\quran\22.json (34862 bytes)
+public\quran\23.json (31172 bytes)
+public\quran\24.json (36691 bytes)
+public\quran\25.json (25830 bytes)
+public\quran\26.json (42257 bytes)
+public\quran\27.json (32186 bytes)
+public\quran\28.json (38657 bytes)
+public\quran\29.json (28076 bytes)
+public\quran\3.json (96292 bytes)
+public\quran\30.json (23094 bytes)
+public\quran\31.json (14441 bytes)
+public\quran\32.json (10478 bytes)
+public\quran\33.json (36586 bytes)
+public\quran\34.json (23529 bytes)
+public\quran\35.json (21094 bytes)
+public\quran\36.json (21351 bytes)
+public\quran\37.json (30009 bytes)
+public\quran\38.json (21766 bytes)
+public\quran\39.json (32082 bytes)
+public\quran\4.json (102465 bytes)
+public\quran\40.json (33582 bytes)
+public\quran\41.json (22159 bytes)
+public\quran\42.json (23141 bytes)
+public\quran\43.json (25048 bytes)
+public\quran\44.json (11095 bytes)
+public\quran\45.json (13869 bytes)
+public\quran\46.json (17201 bytes)
+public\quran\47.json (15933 bytes)
+public\quran\48.json (15991 bytes)
+public\quran\49.json (9809 bytes)
+public\quran\5.json (76494 bytes)
+public\quran\50.json (10898 bytes)
+public\quran\51.json (11540 bytes)
+public\quran\52.json (9868 bytes)
+public\quran\53.json (11050 bytes)
+public\quran\54.json (11178 bytes)
+public\quran\55.json (13020 bytes)
+public\quran\56.json (14087 bytes)
+public\quran\57.json (16137 bytes)
+public\quran\58.json (13045 bytes)
+public\quran\59.json (12523 bytes)
+public\quran\6.json (82773 bytes)
+public\quran\60.json (9758 bytes)
+public\quran\61.json (6279 bytes)
+public\quran\62.json (5021 bytes)
+public\quran\63.json (5281 bytes)
+public\quran\64.json (7224 bytes)
+public\quran\65.json (7863 bytes)
+public\quran\66.json (7088 bytes)
+public\quran\67.json (9281 bytes)
+public\quran\68.json (9755 bytes)
+public\quran\69.json (8825 bytes)
+public\quran\7.json (93269 bytes)
+public\quran\70.json (7584 bytes)
+public\quran\71.json (6814 bytes)
+public\quran\72.json (7821 bytes)
+public\quran\73.json (5906 bytes)
+public\quran\74.json (8531 bytes)
+public\quran\75.json (5780 bytes)
+public\quran\76.json (7610 bytes)
+public\quran\77.json (7049 bytes)
+public\quran\78.json (6187 bytes)
+public\quran\79.json (6479 bytes)
+public\quran\8.json (34966 bytes)
+public\quran\80.json (5155 bytes)
+public\quran\81.json (3798 bytes)
+public\quran\82.json (2815 bytes)
+public\quran\83.json (5933 bytes)
+public\quran\84.json (3738 bytes)
+public\quran\85.json (3693 bytes)
+public\quran\86.json (2256 bytes)
+public\quran\87.json (2614 bytes)
+public\quran\88.json (3407 bytes)
+public\quran\89.json (4766 bytes)
+public\quran\9.json (70286 bytes)
+public\quran\90.json (2900 bytes)
+public\quran\91.json (2113 bytes)
+public\quran\92.json (2799 bytes)
+public\quran\93.json (1519 bytes)
+public\quran\94.json (1029 bytes)
+public\quran\95.json (1328 bytes)
+public\quran\96.json (2560 bytes)
+public\quran\97.json (982 bytes)
+public\quran\98.json (2824 bytes)
+public\quran\99.json (1341 bytes)
+public\quran\index.json (19626 bytes)
+public\quran\en\1.json (1732 bytes)
+public\quran\en\10.json (70459 bytes)
+public\quran\en\100.json (2229 bytes)
+public\quran\en\101.json (2087 bytes)
+public\quran\en\102.json (1667 bytes)
+public\quran\en\103.json (872 bytes)
+public\quran\en\104.json (1837 bytes)
+public\quran\en\105.json (1236 bytes)
+public\quran\en\106.json (1035 bytes)
+public\quran\en\107.json (1476 bytes)
+public\quran\en\108.json (704 bytes)
+public\quran\en\109.json (1286 bytes)
+public\quran\en\11.json (74463 bytes)
+public\quran\en\110.json (1009 bytes)
+public\quran\en\111.json (1157 bytes)
+public\quran\en\112.json (773 bytes)
+public\quran\en\113.json (1079 bytes)
+public\quran\en\114.json (1126 bytes)
+public\quran\en\12.json (68562 bytes)
+public\quran\en\13.json (33124 bytes)
+public\quran\en\14.json (33041 bytes)
+public\quran\en\15.json (30043 bytes)
+public\quran\en\16.json (74121 bytes)
+public\quran\en\17.json (62890 bytes)
+public\quran\en\18.json (62905 bytes)
+public\quran\en\19.json (39788 bytes)
+public\quran\en\2.json (238653 bytes)
+public\quran\en\20.json (54831 bytes)
+public\quran\en\21.json (49193 bytes)
+public\quran\en\22.json (50043 bytes)
+public\quran\en\23.json (44473 bytes)
+public\quran\en\24.json (52091 bytes)
+public\quran\en\25.json (37093 bytes)
+public\quran\en\26.json (60019 bytes)
+public\quran\en\27.json (46295 bytes)
+public\quran\en\28.json (55401 bytes)
+public\quran\en\29.json (39912 bytes)
+public\quran\en\3.json (138332 bytes)
+public\quran\en\30.json (32945 bytes)
+public\quran\en\31.json (20668 bytes)
+public\quran\en\32.json (15014 bytes)
+public\quran\en\33.json (52172 bytes)
+public\quran\en\34.json (33894 bytes)
+public\quran\en\35.json (30108 bytes)
+public\quran\en\36.json (30496 bytes)
+public\quran\en\37.json (43081 bytes)
+public\quran\en\38.json (31764 bytes)
+public\quran\en\39.json (45912 bytes)
+public\quran\en\4.json (145914 bytes)
+public\quran\en\40.json (48279 bytes)
+public\quran\en\41.json (31965 bytes)
+public\quran\en\42.json (33237 bytes)
+public\quran\en\43.json (36128 bytes)
+public\quran\en\44.json (15943 bytes)
+public\quran\en\45.json (19812 bytes)
+public\quran\en\46.json (24974 bytes)
+public\quran\en\47.json (22697 bytes)
+public\quran\en\48.json (23004 bytes)
+public\quran\en\49.json (13792 bytes)
+public\quran\en\5.json (109004 bytes)
+public\quran\en\50.json (15701 bytes)
+public\quran\en\51.json (16629 bytes)
+public\quran\en\52.json (14351 bytes)
+public\quran\en\53.json (15974 bytes)
+public\quran\en\54.json (16079 bytes)
+public\quran\en\55.json (18445 bytes)
+public\quran\en\56.json (20181 bytes)
+public\quran\en\57.json (23119 bytes)
+public\quran\en\58.json (18626 bytes)
+public\quran\en\59.json (17971 bytes)
+public\quran\en\6.json (119067 bytes)
+public\quran\en\60.json (13956 bytes)
+public\quran\en\61.json (8852 bytes)
+public\quran\en\62.json (7041 bytes)
+public\quran\en\63.json (7486 bytes)
+public\quran\en\64.json (10315 bytes)
+public\quran\en\65.json (11248 bytes)
+public\quran\en\66.json (10009 bytes)
+public\quran\en\67.json (13280 bytes)
+public\quran\en\68.json (14145 bytes)
+public\quran\en\69.json (12649 bytes)
+public\quran\en\7.json (133344 bytes)
+public\quran\en\70.json (10780 bytes)
+public\quran\en\71.json (9696 bytes)
+public\quran\en\72.json (11389 bytes)
+public\quran\en\73.json (8501 bytes)
+public\quran\en\74.json (12335 bytes)
+public\quran\en\75.json (8328 bytes)
+public\quran\en\76.json (10999 bytes)
+public\quran\en\77.json (10009 bytes)
+public\quran\en\78.json (8901 bytes)
+public\quran\en\79.json (9528 bytes)
+public\quran\en\8.json (50057 bytes)
+public\quran\en\80.json (7528 bytes)
+public\quran\en\81.json (5575 bytes)
+public\quran\en\82.json (4074 bytes)
+public\quran\en\83.json (8469 bytes)
+public\quran\en\84.json (5440 bytes)
+public\quran\en\85.json (5321 bytes)
+public\quran\en\86.json (3228 bytes)
+public\quran\en\87.json (3749 bytes)
+public\quran\en\88.json (4914 bytes)
+public\quran\en\89.json (6853 bytes)
+public\quran\en\9.json (101075 bytes)
+public\quran\en\90.json (4165 bytes)
+public\quran\en\91.json (3219 bytes)
+public\quran\en\92.json (4062 bytes)
+public\quran\en\93.json (2281 bytes)
+public\quran\en\94.json (1528 bytes)
+public\quran\en\95.json (1836 bytes)
+public\quran\en\96.json (3593 bytes)
+public\quran\en\97.json (1382 bytes)
+public\quran\en\98.json (3993 bytes)
+public\quran\en\99.json (1907 bytes)
+public\quran\en\index.json (23341 bytes)
+
+================ END OF REPORT ================
