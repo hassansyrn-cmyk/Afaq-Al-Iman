@@ -1,33 +1,28 @@
 import { getPref, setPref } from '../utils/storage';
 
 /**
- * All Quran text comes from the AlQuran Cloud API (api.alquran.cloud), a widely used
- * public API serving the standard Uthmani/Hafs text plus vetted translations. Nothing
- * here is generated or edited — we fetch, cache locally (for offline reading after the
- * first successful fetch), and display the text and its source as-is.
+ * The Quran text here is the standard, widely-used "quran-json" dataset (Tanzil-based
+ * Uthmani text, with the Sahih International-style English rendering bundled per verse)
+ * shipped inside the app under /quran/*.json and /quran/en/*.json. Because these files are
+ * bundled with the app itself (not fetched from a remote server), reading and the khatma
+ * plan work fully offline from first launch — nothing here is edited, reworded, or
+ * AI-generated. The source and its license are noted in Settings → About.
  */
-
-const BASE = 'https://api.alquran.cloud/v1';
-const ARABIC_EDITION = 'quran-uthmani';
-const ENGLISH_EDITION = 'en.sahih'; // Sahih International
 
 export interface SurahMeta {
   number: number;
   name: string; // Arabic name
-  englishName: string;
-  englishNameTranslation: string;
+  englishName: string; // transliteration
+  englishNameTranslation: string; // English chapter meaning, when available
   numberOfAyahs: number;
-  revelationType: string;
+  revelationType: string; // 'meccan' | 'medinan'
 }
 
 export interface Ayah {
-  number: number; // global ayah number
+  number: number; // global-ish id, we use numberInSurah as the stable key here
   numberInSurah: number;
   text: string;
   translation?: string;
-  juz: number;
-  hizbQuarter: number;
-  page: number;
 }
 
 export interface SurahContent {
@@ -35,94 +30,82 @@ export interface SurahContent {
   ayahs: Ayah[];
 }
 
-const SURAH_LIST_CACHE_KEY = 'afaq.quran.surahList';
-const surahCacheKey = (n: number) => `afaq.quran.surah.${n}`;
-
-export async function getSurahList(): Promise<SurahMeta[]> {
-  const cached = await getPref<SurahMeta[]>(SURAH_LIST_CACHE_KEY);
-  try {
-    const res = await fetch(`${BASE}/surah`);
-    if (!res.ok) throw new Error('network');
-    const json = await res.json();
-    const list: SurahMeta[] = json.data;
-    await setPref(SURAH_LIST_CACHE_KEY, list);
-    return list;
-  } catch {
-    if (cached) return cached;
-    throw new Error('offline-no-cache');
-  }
+interface RawIndexEntry {
+  id: number; name: string; transliteration: string; type: string; total_verses: number;
 }
 
+interface RawChapter {
+  id: number; name: string; transliteration: string; translation?: string; type: string;
+  total_verses: number;
+  verses: { id: number; text: string; translation?: string }[];
+}
+
+let indexCache: SurahMeta[] | null = null;
+
+export async function getSurahList(): Promise<SurahMeta[]> {
+  if (indexCache) return indexCache;
+  const res = await fetch('/quran/index.json');
+  const raw: RawIndexEntry[] = await res.json();
+  indexCache = raw.map((s) => ({
+    number: s.id,
+    name: s.name,
+    englishName: s.transliteration,
+    englishNameTranslation: s.transliteration,
+    numberOfAyahs: s.total_verses,
+    revelationType: s.type
+  }));
+  return indexCache;
+}
+
+const surahCache = new Map<number, SurahContent>();
+
 export async function getSurah(number: number): Promise<SurahContent> {
-  const key = surahCacheKey(number);
-  try {
-    const [arRes, enRes] = await Promise.all([
-      fetch(`${BASE}/surah/${number}/${ARABIC_EDITION}`),
-      fetch(`${BASE}/surah/${number}/${ENGLISH_EDITION}`)
-    ]);
-    if (!arRes.ok) throw new Error('network');
-    const arJson = await arRes.json();
-    const enJson = enRes.ok ? await enRes.json() : null;
+  if (surahCache.has(number)) return surahCache.get(number)!;
 
-    const meta: SurahMeta = {
-      number: arJson.data.number,
-      name: arJson.data.name,
-      englishName: arJson.data.englishName,
-      englishNameTranslation: arJson.data.englishNameTranslation,
-      numberOfAyahs: arJson.data.numberOfAyahs,
-      revelationType: arJson.data.revelationType
-    };
+  const [arRes, enRes] = await Promise.all([
+    fetch(`/quran/${number}.json`),
+    fetch(`/quran/en/${number}.json`)
+  ]);
+  const ar: RawChapter = await arRes.json();
+  const en: RawChapter | null = enRes.ok ? await enRes.json() : null;
 
-    const ayahs: Ayah[] = arJson.data.ayahs.map((a: any, idx: number) => ({
-      number: a.number,
-      numberInSurah: a.numberInSurah,
-      text: a.text,
-      translation: enJson?.data?.ayahs?.[idx]?.text,
-      juz: a.juz,
-      hizbQuarter: a.hizbQuarter,
-      page: a.page
-    }));
+  const meta: SurahMeta = {
+    number: ar.id,
+    name: ar.name,
+    englishName: ar.transliteration,
+    englishNameTranslation: en?.translation ?? ar.transliteration,
+    numberOfAyahs: ar.total_verses,
+    revelationType: ar.type
+  };
 
-    const content: SurahContent = { meta, ayahs };
-    await setPref(key, content);
-    return content;
-  } catch {
-    const cached = await getPref<SurahContent>(key);
-    if (cached) return cached;
-    throw new Error('offline-no-cache');
-  }
+  const ayahs: Ayah[] = ar.verses.map((v, idx) => ({
+    number: v.id,
+    numberInSurah: v.id,
+    text: v.text,
+    translation: en?.verses?.[idx]?.translation
+  }));
+
+  const content: SurahContent = { meta, ayahs };
+  surahCache.set(number, content);
+  return content;
 }
 
 export async function searchQuran(query: string): Promise<{ surah: SurahMeta; ayah: Ayah }[]> {
-  try {
-    const res = await fetch(`${BASE}/search/${encodeURIComponent(query)}/all/${ARABIC_EDITION}`);
-    if (!res.ok) throw new Error('network');
-    const json = await res.json();
-    if (json.code !== 200) return [];
-    return json.data.matches.map((m: any) => ({
-      surah: {
-        number: m.surah.number,
-        name: m.surah.name,
-        englishName: m.surah.englishName,
-        englishNameTranslation: m.surah.englishNameTranslation,
-        numberOfAyahs: m.surah.numberOfAyahs,
-        revelationType: m.surah.revelationType
-      },
-      ayah: {
-        number: m.number,
-        numberInSurah: m.numberInSurah,
-        text: m.text,
-        juz: m.juz ?? 0,
-        hizbQuarter: m.hizbQuarter ?? 0,
-        page: m.page ?? 0
-      }
-    }));
-  } catch {
-    return [];
+  const q = query.trim();
+  if (!q) return [];
+  const list = await getSurahList();
+  const results: { surah: SurahMeta; ayah: Ayah }[] = [];
+  for (const s of list) {
+    const content = await getSurah(s.number);
+    for (const a of content.ayahs) {
+      if (a.text.includes(q)) results.push({ surah: s, ayah: a });
+      if (results.length >= 50) return results;
+    }
   }
+  return results;
 }
 
-// --- Last read / bookmarks / favorites (locally stored) ---
+// --- Last read / bookmarks (locally stored) ---
 
 export interface ReadingPosition { surah: number; ayah: number; timestamp: number }
 

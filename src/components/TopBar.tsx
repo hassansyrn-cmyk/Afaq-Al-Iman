@@ -1,5 +1,6 @@
 import React from 'react';
 import { useI18n } from '../i18n';
+import { Languages } from 'lucide-react';
 
 const TopBar: React.FC<{ title: string; right?: React.ReactNode }> = ({ title, right }) => {
   const { lang, setLang } = useI18n();
@@ -9,7 +10,7 @@ const TopBar: React.FC<{ title: string; right?: React.ReactNode }> = ({ title, r
       <div className="row" style={{ gap: 8 }}>
         {right}
         <button className="chip" onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')} aria-label="toggle language">
-          {lang === 'ar' ? 'EN' : 'ع'}
+          <Languages size={13} /> {lang === 'ar' ? 'EN' : 'ع'}
         </button>
       </div>
     </div>

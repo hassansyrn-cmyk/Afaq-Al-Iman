@@ -1,16 +1,25 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { MapPin, BookOpen, Heart, Compass, Settings as SettingsIcon, ChevronLeft } from 'lucide-react';
 import { useI18n } from '../i18n';
 import { useSettings } from '../context/SettingsContext';
-import TopBar from '../components/TopBar';
+import SectionHero from '../components/SectionHero';
 import CountdownTimer from '../components/CountdownTimer';
 import { calculateTimesForDate, getNextPrayer, DayTimes, PrayerKey } from '../services/prayerTimes';
 import { gregorianToHijri } from '../utils/hijri';
 import { getPlan, KhatmaPlan, progressPercent, todaysTarget, totalCompletedPages } from '../services/khatma';
 import { getRandomDailyHadith, HadithItem } from '../services/hadithApi';
-import { QuranIcon, AzkarIcon, QiblaIcon, SettingsIcon, LocationIcon } from '../components/Icons';
 
 const PRAYER_ORDER: PrayerKey[] = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
+
+const prayerHeroImages: Record<PrayerKey, string> = {
+  fajr: '/images/home/prayer-fajr.webp',
+  sunrise: '/images/home/prayer-sunrise.webp',
+  dhuhr: '/images/home/prayer-dhuhr.webp',
+  asr: '/images/home/prayer-asr.webp',
+  maghrib: '/images/home/prayer-maghrib.webp',
+  isha: '/images/home/prayer-isha.webp'
+};
 
 const HomePage: React.FC = () => {
   const { t, lang } = useI18n();
@@ -50,102 +59,89 @@ const HomePage: React.FC = () => {
   }, [todayTimes, now, prayerSettings]);
 
   const locale = lang === 'ar' ? 'ar' : 'en';
+  const heroImage = next ? prayerHeroImages[next.key] : '/images/home/prayer-hero.webp';
 
   return (
     <div className="page">
-      <TopBar title={t.app.name} />
-
-      <div className="card" style={{ background: 'linear-gradient(135deg, var(--color-primary), #145C41)', color: '#fff', border: 'none' }}>
-        <div className="row" style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12 }}>
-          <span className="row" style={{ gap: 4 }}>
-            <LocationIcon size={14} />
-            {prayerSettings.cityLabel}
-          </span>
-          <span>
-            {hijri.day} {lang === 'ar' ? hijri.monthNameAr : hijri.monthNameEn} {hijri.year}هـ
-          </span>
-        </div>
+      <SectionHero
+        tall
+        image={heroImage}
+        eyebrow={t.home.nextPrayer}
+        title={next ? (t.home as any)[next.key] : ''}
+        topRight={
+          <div className="row" style={{ width: '100%', color: 'rgba(255,255,255,0.9)', fontSize: 12 }}>
+            <span className="row" style={{ gap: 4 }}><MapPin size={13} />{prayerSettings.cityLabel}</span>
+            <span>{hijri.day} {lang === 'ar' ? hijri.monthNameAr : hijri.monthNameEn} {hijri.year}هـ</span>
+          </div>
+        }
+      >
         {next && (
-          <div style={{ textAlign: 'center', marginTop: 14 }}>
-            <div style={{ fontSize: 13, opacity: 0.85 }}>{t.home.nextPrayer}</div>
-            <div style={{ fontSize: 22, fontWeight: 800, margin: '4px 0' }}>{(t.home as any)[next.key]}</div>
-            <CountdownTimer target={next.time} />
-          </div>
-        )}
-      </div>
-
-      <div className="section-title">{t.home.prayerTimesTitle}</div>
-      <div className="card">
-        <div className="stack">
-          {todayTimes &&
-            PRAYER_ORDER.map((key) => (
-              <div className="row" key={key} style={{ opacity: next?.key === key ? 1 : 0.75, fontWeight: next?.key === key ? 800 : 500 }}>
-                <span>{(t.home as any)[key]}</span>
-                <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-                  {todayTimes[key].toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              </div>
-            ))}
-        </div>
-      </div>
-      <p className="hint" style={{ margin: '8px 4px 0' }}>{t.home.calcNotice}</p>
-
-      <div className="section-title">{t.home.quranWirdTitle}</div>
-      <div className="card">
-        {plan ? (
           <>
-            <div className="row">
-              <span>{t.khatma.todayWird}</span>
-              <span style={{ fontWeight: 700 }}>{todaysTarget(plan)} {t.quran.pageLabel}</span>
-            </div>
-            <div className="progress-track" style={{ marginTop: 10 }}>
-              <div className="progress-fill" style={{ width: `${progressPercent(plan)}%` }} />
-            </div>
-            <div className="row hint" style={{ marginTop: 6 }}>
-              <span>{t.home.khatmaProgress}</span>
-              <span>{progressPercent(plan)}% ({totalCompletedPages(plan)}/{plan.totalPages})</span>
-            </div>
+            <div className="prayer-time">{next.time.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}</div>
+            <div className="hero-location"><CountdownTimer target={next.time} /></div>
           </>
-        ) : (
-          <div className="row">
-            <span className="hint">{t.khatma.noPlan}</span>
-            <Link to="/quran/khatma" className="btn btn-outline">{t.khatma.start}</Link>
-          </div>
         )}
-      </div>
+      </SectionHero>
 
-      <div className="section-title">{t.home.hadithOfDay}</div>
-      <div className="card">
-        {hadith ? (
+      <div className="content">
+        <div className="glass">
           <div className="stack">
-            <p className="quran-text" style={{ fontSize: 16, margin: 0 }}>{hadith.arabic}</p>
-            <span className="hint">{hadith.bookName} — {t.hadith.number} {hadith.hadithNumber}</span>
+            {todayTimes &&
+              PRAYER_ORDER.map((key) => (
+                <div className="row" key={key} style={{ opacity: next?.key === key ? 1 : 0.75, fontWeight: next?.key === key ? 800 : 500 }}>
+                  <span>{(t.home as any)[key]}</span>
+                  <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+                    {todayTimes[key].toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              ))}
           </div>
-        ) : hadithError ? (
-          <span className="hint">{t.hadith.loadError}</span>
-        ) : (
-          <span className="hint">{t.common.loading}</span>
-        )}
-      </div>
+        </div>
+        <p className="hint" style={{ margin: '-6px 4px 14px' }}>{t.home.calcNotice}</p>
 
-      <div className="section-title">{t.home.shortcuts}</div>
-      <div className="row" style={{ gap: 10 }}>
-        <Link to="/quran" className="card" style={{ flex: 1, textAlign: 'center', textDecoration: 'none', color: 'var(--text-primary)' }}>
-          <QuranIcon />
-          <div style={{ fontSize: 12, marginTop: 6, fontWeight: 700 }}>{t.nav.quran}</div>
-        </Link>
-        <Link to="/azkar" className="card" style={{ flex: 1, textAlign: 'center', textDecoration: 'none', color: 'var(--text-primary)' }}>
-          <AzkarIcon />
-          <div style={{ fontSize: 12, marginTop: 6, fontWeight: 700 }}>{t.nav.azkar}</div>
-        </Link>
-        <Link to="/qibla" className="card" style={{ flex: 1, textAlign: 'center', textDecoration: 'none', color: 'var(--text-primary)' }}>
-          <QiblaIcon />
-          <div style={{ fontSize: 12, marginTop: 6, fontWeight: 700 }}>{t.nav.qibla}</div>
-        </Link>
-        <Link to="/settings" className="card" style={{ flex: 1, textAlign: 'center', textDecoration: 'none', color: 'var(--text-primary)' }}>
-          <SettingsIcon />
-          <div style={{ fontSize: 12, marginTop: 6, fontWeight: 700 }}>{t.nav.settings}</div>
-        </Link>
+        <div className="feature-card">
+          <div>
+            <small>{t.home.quranWirdTitle}</small>
+            {plan ? (
+              <h2>{todaysTarget(plan)} {t.quran.pageLabel}</h2>
+            ) : (
+              <h2 style={{ fontSize: 18 }}>{t.khatma.noPlan}</h2>
+            )}
+            <p>{plan ? `${t.home.khatmaProgress}: ${progressPercent(plan)}%` : t.khatma.setupTitle}</p>
+          </div>
+          <div className="orb">{plan ? `${progressPercent(plan)}%` : '—'}</div>
+          <Link to="/quran/khatma" className="btn btn-primary">
+            {plan ? `${totalCompletedPages(plan)}/${plan.totalPages} ${t.quran.pageLabel}` : t.khatma.start}
+          </Link>
+        </div>
+
+        <div className="quick-grid">
+          <Link to="/quran"><BookOpen /><span>{t.nav.quran}</span></Link>
+          <Link to="/azkar"><Heart /><span>{t.nav.azkar}</span></Link>
+          <Link to="/qibla"><Compass /><span>{t.nav.qibla}</span></Link>
+          <Link to="/settings"><SettingsIcon /><span>{t.nav.settings}</span></Link>
+        </div>
+
+        <div className="glass">
+          <small>{t.home.hadithOfDay}</small>
+          {hadith ? (
+            <>
+              <p className="quran-text" style={{ fontSize: 17, margin: '8px 0' }}>«{hadith.arabic}»</p>
+              <div className="row">
+                <em style={{ color: 'var(--muted)', fontStyle: 'normal', fontSize: 12 }}>
+                  {hadith.bookName} — {t.hadith.number} {hadith.hadithNumber}
+                </em>
+                <Link to="/hadith" className="row hint" style={{ textDecoration: 'none' }}>
+                  {t.hadith.title} <ChevronLeft size={14} />
+                </Link>
+              </div>
+            </>
+          ) : hadithError ? (
+            <p className="hint">{t.hadith.loadError}</p>
+          ) : (
+            <p className="hint">{t.common.loading}</p>
+          )}
+        </div>
       </div>
     </div>
   );

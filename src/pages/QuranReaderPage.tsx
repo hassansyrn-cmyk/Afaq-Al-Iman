@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Bookmark } from 'lucide-react';
 import { useI18n } from '../i18n';
 import TopBar from '../components/TopBar';
 import { SurahContent, getSurah, saveLastRead, getBookmarks, toggleBookmark, ReadingPosition } from '../services/quranApi';
-import { BookmarkIcon } from '../components/Icons';
 import { getPref, setPref } from '../utils/storage';
 
 const FONT_KEY = 'afaq.quran.fontSize';
@@ -59,48 +59,46 @@ const QuranReaderPage: React.FC = () => {
 
   return (
     <div className="page">
-      <TopBar
-        title={title || t.quran.title}
-        right={<button className="chip" onClick={() => navigate('/quran')}>{t.common.back}</button>}
-      />
+      <TopBar title={title || t.quran.title} right={<button className="chip" onClick={() => navigate('/quran')}>{t.common.back}</button>} />
 
-      <div className="card row" style={{ marginBottom: 12 }}>
-        <div className="row" style={{ gap: 6 }}>
-          <button className="btn btn-ghost" onClick={() => changeFont(-2)}>A-</button>
-          <button className="btn btn-ghost" onClick={() => changeFont(2)}>A+</button>
+      <div className="content">
+        <div className="glass row" style={{ marginBottom: 12 }}>
+          <div className="row" style={{ gap: 6 }}>
+            <button className="btn btn-ghost" onClick={() => changeFont(-2)}>A-</button>
+            <button className="btn btn-ghost" onClick={() => changeFont(2)}>A+</button>
+          </div>
+          <button className={`chip${showTranslation ? ' active' : ''}`} onClick={() => setShowTranslation((v) => !v)}>
+            {lang === 'ar' ? 'EN' : t.quran.title}
+          </button>
         </div>
-        <button className={`chip${showTranslation ? ' active' : ''}`} onClick={() => setShowTranslation((v) => !v)}>
-          {lang === 'ar' ? 'EN' : t.quran.title}
-        </button>
-      </div>
 
-      {error && <p className="hint">{t.quran.loadError}</p>}
-      {!content && !error && <p className="hint">{t.common.loading}</p>}
+        {error && <p className="hint">{t.quran.loadError}</p>}
+        {!content && !error && <p className="hint">{t.common.loading}</p>}
 
-      {content && (
-        <div className="card stack">
-          {content.ayahs.map((ayah) => (
-            <div key={ayah.number} id={`ayah-${ayah.numberInSurah}`} className="stack" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
-              <p className="quran-text" style={{ fontSize, margin: 0 }}>
-                {ayah.text}
-                <span className="chip" style={{ marginInlineStart: 8, fontSize: 11 }}>{ayah.numberInSurah}</span>
-              </p>
-              {showTranslation && ayah.translation && <p className="hint" style={{ fontStyle: 'italic' }}>{ayah.translation}</p>}
-              <div className="row">
-                <span className="hint">{t.quran.juzLabel} {ayah.juz} · {t.quran.pageLabel} {ayah.page}</span>
-                <button className="btn btn-ghost" onClick={() => onBookmark(ayah.numberInSurah)} aria-label="bookmark">
-                  <span style={{ opacity: isBookmarked(ayah.numberInSurah) ? 1 : 0.4, display: 'inline-flex' }}>
-                    <BookmarkIcon size={16} />
-                  </span>
-                </button>
+        {content && (
+          <div className="glass stack">
+            {content.ayahs.map((ayah) => (
+              <div key={ayah.numberInSurah} id={`ayah-${ayah.numberInSurah}`} className="stack" style={{ borderBottom: '1px solid var(--line)', paddingBottom: 12 }}>
+                <p className="quran-text" style={{ fontSize, margin: 0 }}>
+                  {ayah.text}
+                  <span className="chip" style={{ marginInlineStart: 8, fontSize: 11 }}>{ayah.numberInSurah}</span>
+                </p>
+                {showTranslation && ayah.translation && <p className="hint" style={{ fontStyle: 'italic' }}>{ayah.translation}</p>}
+                <div className="row">
+                  <span />
+                  <button className="btn btn-ghost" onClick={() => onBookmark(ayah.numberInSurah)} aria-label="bookmark">
+                    <span style={{ opacity: isBookmarked(ayah.numberInSurah) ? 1 : 0.4, display: 'inline-flex' }}>
+                      <Bookmark size={16} />
+                    </span>
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
 
-      <p className="hint" style={{ margin: '14px 4px 0' }}>{t.quran.sourceNotice}</p>
-      <p className="hint" style={{ margin: '4px 4px 0' }}>{t.quran.offlineNotice}</p>
+        <p className="hint" style={{ margin: '14px 4px 0' }}>{t.quran.sourceNotice}</p>
+      </div>
     </div>
   );
 };

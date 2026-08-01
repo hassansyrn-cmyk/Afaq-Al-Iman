@@ -53,13 +53,14 @@ const NotificationSettingsPage: React.FC = () => {
     <div className="page">
       <TopBar title={t.notifications.title} right={<button className="chip" onClick={() => navigate('/settings')}>{t.common.back}</button>} />
 
+      <div className="content">
       {permissionError && <p className="hint" style={{ color: '#c0392b' }}>{t.errors.notificationPermission}</p>}
 
       <div className="stack">
         {PRAYERS.map((p) => {
           const conf = local.perPrayer[p];
           return (
-            <div className="card stack" key={p}>
+            <div className="glass stack" key={p}>
               <div className="row">
                 <span style={{ fontWeight: 700 }}>{(t.home as any)[p]}</span>
                 <button className={`switch${conf.enabled ? ' on' : ''}`} onClick={() => updatePrayer(p, { enabled: !conf.enabled })} aria-label="toggle" />
@@ -94,7 +95,7 @@ const NotificationSettingsPage: React.FC = () => {
       </div>
 
       <div className="section-title">{t.notifications.dailyNotifTitle}</div>
-      <div className="card stack">
+      <div className="glass stack">
         {([
           ['morningAzkar', t.notifications.morningAzkar],
           ['eveningAzkar', t.notifications.eveningAzkar],
@@ -110,7 +111,7 @@ const NotificationSettingsPage: React.FC = () => {
       </div>
 
       <div className="section-title">{t.notifications.quietHours}</div>
-      <div className="card stack">
+      <div className="glass stack">
         <div className="row">
           <span>{t.notifications.quietHours}</span>
           <button className={`switch${local.quietHoursEnabled ? ' on' : ''}`} onClick={() => setLocal((s) => ({ ...s, quietHoursEnabled: !s.quietHoursEnabled }))} aria-label="toggle" />
@@ -130,6 +131,7 @@ const NotificationSettingsPage: React.FC = () => {
       <button className="btn btn-primary" style={{ width: '100%', marginTop: 8 }} onClick={save} disabled={saving}>
         {t.prayer.save}
       </button>
+      </div>
     </div>
   );
 };

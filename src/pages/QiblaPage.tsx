@@ -1,50 +1,60 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useI18n } from '../i18n';
 import { useSettings } from '../context/SettingsContext';
-import TopBar from '../components/TopBar';
+import SectionHero from '../components/SectionHero';
 import { calculateQiblaDirection } from '../services/prayerTimes';
-import { CompassIcon } from '../components/Icons';
 
 const QiblaPage: React.FC = () => {
   const { t } = useI18n();
   const { prayerSettings } = useSettings();
+  const bearing = Math.round(calculateQiblaDirection(prayerSettings.latitude, prayerSettings.longitude));
+
   const [heading, setHeading] = useState<number | null>(null);
   const [hasSensor, setHasSensor] = useState<boolean | null>(null);
   const [permissionNeeded, setPermissionNeeded] = useState(false);
-
-  const qiblaDeg = calculateQiblaDirection(prayerSettings.latitude, prayerSettings.longitude);
+  const hist = useRef<number[]>([]);
+  const locked = useRef<number | null>(null);
 
   useEffect(() => {
-    let active = true;
+    // Smoothed heading: circular moving average over the last readings, then a damped
+    // approach toward that average so the needle doesn't jitter — same technique used
+    // in an earlier prototype of this app, which felt noticeably steadier in testing.
+    const handler = (e: any) => {
+      let r: number | null =
+        typeof e.webkitCompassHeading === 'number' ? e.webkitCompassHeading : typeof e.alpha === 'number' ? (360 - e.alpha) % 360 : null;
+      if (r === null) return;
+      setHasSensor(true);
+      const screenAngle = (window.screen as any)?.orientation?.angle ?? 0;
+      r = (r + screenAngle + 360) % 360;
 
-    const handler = (e: DeviceOrientationEvent) => {
-      if (!active) return;
-      const anyEvent = e as any;
-      const compassHeading = anyEvent.webkitCompassHeading ?? (e.alpha !== null ? 360 - e.alpha : null);
-      if (compassHeading !== null) {
-        setHasSensor(true);
-        setHeading(compassHeading);
-      }
+      hist.current.push(r);
+      if (hist.current.length > 15) hist.current.shift();
+      const sx = hist.current.reduce((s, a) => s + Math.sin((a * Math.PI) / 180), 0);
+      const cx = hist.current.reduce((s, a) => s + Math.cos((a * Math.PI) / 180), 0);
+      const avg = ((Math.atan2(sx, cx) * 180) / Math.PI + 360) % 360;
+
+      if (locked.current === null) locked.current = avg;
+      const d = ((avg - locked.current + 540) % 360) - 180;
+      if (Math.abs(d) >= 2.2) locked.current = (locked.current + d * 0.22 + 360) % 360;
+      setHeading(locked.current);
     };
 
     const DOE = (window as any).DeviceOrientationEvent;
     if (DOE && typeof DOE.requestPermission === 'function') {
       setPermissionNeeded(true);
-    } else if (window.DeviceOrientationEvent) {
+      return;
+    }
+    if (window.DeviceOrientationEvent) {
+      window.addEventListener('deviceorientationabsolute', handler, true);
       window.addEventListener('deviceorientation', handler, true);
       const timeout = setTimeout(() => setHasSensor((prev) => prev ?? false), 2500);
       return () => {
-        active = false;
+        window.removeEventListener('deviceorientationabsolute', handler, true);
         window.removeEventListener('deviceorientation', handler, true);
         clearTimeout(timeout);
       };
-    } else {
-      setHasSensor(false);
     }
-
-    return () => {
-      active = false;
-    };
+    setHasSensor(false);
   }, []);
 
   const requestIOSPermission = async () => {
@@ -53,68 +63,53 @@ const QiblaPage: React.FC = () => {
       const result = await DOE.requestPermission();
       if (result === 'granted') {
         setPermissionNeeded(false);
-        window.addEventListener(
-          'deviceorientation',
-          (e: any) => {
-            const compassHeading = e.webkitCompassHeading ?? (e.alpha !== null ? 360 - e.alpha : null);
-            if (compassHeading !== null) {
-              setHasSensor(true);
-              setHeading(compassHeading);
-            }
-          },
-          true
-        );
+      } else {
+        setHasSensor(false);
       }
     } catch {
       setHasSensor(false);
     }
   };
 
-  const needleRotation = heading !== null ? qiblaDeg - heading : qiblaDeg;
+  const delta = heading === null ? 0 : ((bearing - heading + 540) % 360) - 180;
+  const aligned = heading !== null && Math.abs(delta) < 4;
 
   return (
     <div className="page">
-      <TopBar title={t.qibla.title} />
+      <SectionHero image="/images/qibla/qibla-hero.webp" title={t.qibla.title} subtitle={t.qibla.calibrate} />
 
-      <div className="card center-msg">
-        <div style={{ position: 'relative', width: 220, height: 220 }}>
-          <svg viewBox="0 0 220 220" width="220" height="220">
-            <circle cx="110" cy="110" r="100" fill="none" stroke="var(--border)" strokeWidth="2" />
-            {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => (
-              <line
-                key={deg}
-                x1="110" y1="14" x2="110" y2="26"
-                stroke="var(--text-secondary)" strokeWidth="2"
-                transform={`rotate(${deg} 110 110)`}
-              />
-            ))}
-            <text x="110" y="30" textAnchor="middle" fontSize="12" fill="var(--text-secondary)">N</text>
-          </svg>
-          <div
-            style={{
-              position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transform: `rotate(${needleRotation}deg)`, transition: 'transform 200ms ease'
-            }}
-          >
-            <CompassIcon size={90} className="quran-text" />
+      <div className="content">
+        <div className="glass center-msg" style={aligned ? { borderColor: 'var(--gold)' } : undefined}>
+          <div style={{ position: 'relative', width: 220, height: 220 }}>
+            <svg viewBox="0 0 220 220" width="220" height="220" style={{ transform: `rotate(${-(heading ?? 0)}deg)`, transition: 'transform 200ms ease' }}>
+              <circle cx="110" cy="110" r="100" fill="none" stroke="var(--line)" strokeWidth="2" />
+              {Array.from({ length: 36 }, (_, i) => (
+                <line key={i} x1="110" y1="14" x2="110" y2="26" stroke="var(--muted)" strokeWidth="2" transform={`rotate(${i * 10} 110 110)`} />
+              ))}
+              <text x="110" y="30" textAnchor="middle" fontSize="12" fill="var(--muted)">N</text>
+              <g transform={`rotate(${bearing} 110 110)`}>
+                <circle cx="110" cy="26" r="7" fill="var(--gold)" />
+              </g>
+            </svg>
+            <div style={{ position: 'absolute', top: 0, insetInlineStart: '50%', transform: 'translateX(-50%)', color: 'var(--green)', fontSize: 20 }}>▲</div>
           </div>
+
+          <h2 style={{ margin: 0 }}>{bearing}°</h2>
+          <span className="hint">{aligned ? t.qibla.title : t.qibla.degrees}</span>
+
+          {permissionNeeded && (
+            <button className="btn btn-primary" onClick={requestIOSPermission}>{t.common.ok}</button>
+          )}
+
+          {hasSensor === false && (
+            <p className="hint">{t.qibla.noSensor} {bearing}°</p>
+          )}
         </div>
 
-        <div style={{ fontSize: 26, fontWeight: 800 }}>{Math.round(qiblaDeg)}°</div>
-        <span className="hint">{t.qibla.degrees}</span>
-
-        {permissionNeeded && (
-          <button className="btn btn-primary" onClick={requestIOSPermission}>{t.common.ok}</button>
-        )}
-
-        {hasSensor === false && (
-          <p className="hint">{t.qibla.noSensor} {Math.round(qiblaDeg)}°</p>
-        )}
-      </div>
-
-      <div className="card stack" style={{ marginTop: 12 }}>
-        <p className="hint">{t.qibla.calibrate}</p>
-        <p className="hint">{t.qibla.avoidMetal}</p>
+        <div className="glass stack">
+          <p className="hint">{t.qibla.calibrate}</p>
+          <p className="hint">{t.qibla.avoidMetal}</p>
+        </div>
       </div>
     </div>
   );

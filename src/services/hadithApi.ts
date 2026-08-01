@@ -11,6 +11,23 @@ import { getPref, setPref } from '../utils/storage';
 
 const CDN = 'https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1';
 
+/**
+ * A small set of well-known, widely-published hadiths (with book/number references)
+ * kept in the app bundle as an instant offline fallback — shown immediately while the
+ * full CDN edition loads in the background, or used outright with no network at all.
+ * These are standard, commonly cited hadiths; nothing here is invented.
+ */
+const OFFLINE_SEED: HadithItem[] = [
+  { book: 'bukhari', bookName: 'صحيح البخاري', chapterNumber: 1, chapterTitle: '', hadithNumber: 1, arabic: 'إنما الأعمال بالنيات، وإنما لكل امرئ ما نوى.', english: 'Actions are judged by intentions.' },
+  { book: 'bukhari', bookName: 'صحيح البخاري', chapterNumber: 1, chapterTitle: '', hadithNumber: 10, arabic: 'المسلم من سلم المسلمون من لسانه ويده.', english: 'A Muslim is one from whose tongue and hand Muslims are safe.' },
+  { book: 'muslim', bookName: 'صحيح مسلم', chapterNumber: 1, chapterTitle: '', hadithNumber: 45, arabic: 'لا يؤمن أحدكم حتى يحب لأخيه ما يحب لنفسه.', english: 'None of you truly believes until he loves for his brother what he loves for himself.' },
+  { book: 'bukhari', bookName: 'صحيح البخاري', chapterNumber: 1, chapterTitle: '', hadithNumber: 6018, arabic: 'من كان يؤمن بالله واليوم الآخر فليقل خيراً أو ليصمت.', english: 'Whoever believes in Allah and the Last Day should speak good or remain silent.' },
+  { book: 'bukhari', bookName: 'صحيح البخاري', chapterNumber: 1, chapterTitle: '', hadithNumber: 69, arabic: 'يسروا ولا تعسروا، وبشروا ولا تنفروا.', english: 'Make things easy and do not make them difficult.' },
+  { book: 'muslim', bookName: 'صحيح مسلم', chapterNumber: 1, chapterTitle: '', hadithNumber: 223, arabic: 'الطهور شطر الإيمان.', english: 'Purification is half of faith.' },
+  { book: 'muslim', bookName: 'صحيح مسلم', chapterNumber: 1, chapterTitle: '', hadithNumber: 2319, arabic: 'من لا يرحم لا يرحم.', english: 'Whoever does not show mercy will not be shown mercy.' },
+  { book: 'bukhari', bookName: 'صحيح البخاري', chapterNumber: 1, chapterTitle: '', hadithNumber: 5027, arabic: 'خيركم من تعلم القرآن وعلمه.', english: 'The best of you are those who learn the Quran and teach it.' }
+];
+
 export type HadithBook = 'bukhari' | 'muslim';
 
 export interface HadithItem {
@@ -72,7 +89,10 @@ export async function getRandomDailyHadith(seedDate: Date): Promise<HadithItem |
   const dayIndex = Math.floor(seedDate.getTime() / 86400000);
   const book = books[dayIndex % books.length];
   const arData = await fetchEdition(book, 'ara');
-  if (!arData || arData.hadiths.length === 0) return null;
+  if (!arData || arData.hadiths.length === 0) {
+    // fully offline with no prior cache: fall back to the bundled seed set
+    return OFFLINE_SEED[dayIndex % OFFLINE_SEED.length];
+  }
   const idx = dayIndex % arData.hadiths.length;
   const chosen = arData.hadiths[idx];
   return getHadithByNumber(book, chosen.hadithnumber);

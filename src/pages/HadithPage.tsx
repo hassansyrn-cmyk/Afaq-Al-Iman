@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import { Search, Share2, Heart } from 'lucide-react';
 import { useI18n } from '../i18n';
-import TopBar from '../components/TopBar';
+import SectionHero from '../components/SectionHero';
 import { HadithBook, HadithItem, getFavoriteHadiths, getRandomDailyHadith, searchHadith, toggleFavoriteHadith } from '../services/hadithApi';
-import { HeartIcon, SearchIcon, ShareIcon } from '../components/Icons';
 
 const HadithPage: React.FC = () => {
   const { t } = useI18n();
@@ -43,58 +43,58 @@ const HadithPage: React.FC = () => {
 
   return (
     <div className="page">
-      <TopBar title={t.hadith.title} />
+      <SectionHero image="/images/hadith/hadith-hero.webp" title={t.hadith.title} subtitle={t.hadith.sourceNotice} />
 
-      <div className="section-title">{t.hadith.dailyHadith}</div>
-      <div className="card stack">
-        {daily ? (
-          <>
-            <p className="quran-text" style={{ fontSize: 17, margin: 0 }}>{daily.arabic}</p>
-            {daily.english && <p className="hint" style={{ fontStyle: 'italic' }}>{daily.english}</p>}
-            <div className="row">
-              <span className="hint">{daily.bookName} — {t.hadith.number} {daily.hadithNumber}</span>
-              <div className="row" style={{ gap: 10 }}>
-                <button className="btn btn-ghost" onClick={() => share(daily)} aria-label="share"><ShareIcon size={16} /></button>
-                <button className="btn btn-ghost" onClick={() => toggleFav(daily)} aria-label="favorite">
-                  <HeartIcon size={16} filled={isFavorite(daily)} />
-                </button>
+      <div className="content">
+        <div className="section-title" style={{ marginTop: 0 }}>{t.hadith.dailyHadith}</div>
+        <div className="glass stack">
+          {daily ? (
+            <>
+              <p className="quran-text" style={{ fontSize: 17, margin: 0 }}>«{daily.arabic}»</p>
+              {daily.english && <p className="hint" style={{ fontStyle: 'italic' }}>{daily.english}</p>}
+              <div className="row">
+                <span className="hint">{daily.bookName} — {t.hadith.number} {daily.hadithNumber}</span>
+                <div className="row" style={{ gap: 10 }}>
+                  <button className="btn btn-ghost" onClick={() => share(daily)} aria-label="share"><Share2 size={16} /></button>
+                  <button className="btn btn-ghost" onClick={() => toggleFav(daily)} aria-label="favorite">
+                    <Heart size={16} fill={isFavorite(daily) ? 'currentColor' : 'none'} />
+                  </button>
+                </div>
               </div>
-            </div>
-          </>
-        ) : error ? (
-          <span className="hint">{t.hadith.loadError}</span>
-        ) : (
-          <span className="hint">{t.common.loading}</span>
-        )}
-      </div>
-
-      <div className="section-title">{t.hadith.search}</div>
-      <div className="card">
-        <div className="row" style={{ gap: 8, marginBottom: 10 }}>
-          <button className={`chip${book === 'bukhari' ? ' active' : ''}`} onClick={() => setBook('bukhari')}>{t.hadith.sourceBukhari}</button>
-          <button className={`chip${book === 'muslim' ? ' active' : ''}`} onClick={() => setBook('muslim')}>{t.hadith.sourceMuslim}</button>
+            </>
+          ) : error ? (
+            <span className="hint">{t.hadith.loadError}</span>
+          ) : (
+            <span className="hint">{t.common.loading}</span>
+          )}
         </div>
-        <div className="row" style={{ gap: 8 }}>
-          <input type="text" placeholder={t.hadith.search} value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && runSearch()} />
-          <button className="btn btn-primary" onClick={runSearch} aria-label="search"><SearchIcon size={16} /></button>
-        </div>
-      </div>
 
-      {searching && <p className="hint" style={{ margin: '10px 4px' }}>{t.common.loading}</p>}
-
-      {results.map((r) => (
-        <div className="card" key={`${r.book}-${r.hadithNumber}`}>
-          <p className="quran-text" style={{ fontSize: 16, margin: 0 }}>{r.arabic}</p>
-          <div className="row" style={{ marginTop: 8 }}>
-            <span className="hint">{r.bookName} — {t.hadith.number} {r.hadithNumber}</span>
-            <button className="btn btn-ghost" onClick={() => toggleFav(r)} aria-label="favorite">
-              <HeartIcon size={16} filled={isFavorite(r)} />
-            </button>
+        <div className="section-title">{t.hadith.search}</div>
+        <div className="glass">
+          <div className="row" style={{ gap: 8, marginBottom: 10 }}>
+            <button className={`chip${book === 'bukhari' ? ' active' : ''}`} onClick={() => setBook('bukhari')}>{t.hadith.sourceBukhari}</button>
+            <button className={`chip${book === 'muslim' ? ' active' : ''}`} onClick={() => setBook('muslim')}>{t.hadith.sourceMuslim}</button>
+          </div>
+          <div className="row" style={{ gap: 8 }}>
+            <input type="text" placeholder={t.hadith.search} value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && runSearch()} />
+            <button className="btn btn-primary" onClick={runSearch} aria-label="search"><Search size={16} /></button>
           </div>
         </div>
-      ))}
 
-      <p className="hint" style={{ margin: '14px 4px 0' }}>{t.hadith.sourceNotice}</p>
+        {searching && <p className="hint" style={{ margin: '10px 4px' }}>{t.common.loading}</p>}
+
+        {results.map((r) => (
+          <div className="glass" key={`${r.book}-${r.hadithNumber}`}>
+            <p className="quran-text" style={{ fontSize: 16, margin: 0 }}>«{r.arabic}»</p>
+            <div className="row" style={{ marginTop: 8 }}>
+              <span className="hint">{r.bookName} — {t.hadith.number} {r.hadithNumber}</span>
+              <button className="btn btn-ghost" onClick={() => toggleFav(r)} aria-label="favorite">
+                <Heart size={16} fill={isFavorite(r) ? 'currentColor' : 'none'} />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
