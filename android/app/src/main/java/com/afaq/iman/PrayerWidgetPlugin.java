@@ -23,8 +23,6 @@ public class PrayerWidgetPlugin extends Plugin {
             .putLong("target", call.getLong("target", System.currentTimeMillis()));
         JSArray schedule = call.getArray("schedule");
         if (schedule != null) editor.putString("schedule", schedule.toString());
-        String hijri = call.getString("hijri", null);
-        if (hijri != null) editor.putString("hijri", hijri);
         editor.apply();
         int[] ids = AppWidgetManager.getInstance(context).getAppWidgetIds(new ComponentName(context, PrayerWidgetProvider.class));
         PrayerWidgetProvider.updateAll(context, ids);

@@ -4,6 +4,7 @@ import {
   BookOpen,
   ChevronLeft,
   ChevronRight,
+  Languages,
   Minus,
   Plus,
   Search,
@@ -11,7 +12,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { sanitizeQuranText } from "./quranText";
 
-type Verse = { id: number; text: string; translation?: string; transliteration?: string };
+type Verse = { id: number; text: string; translation?: string };
 type Chapter = {
   id: number;
   name: string;
@@ -57,7 +58,9 @@ export default function QuranExperience({
     load("quran-last-read", null),
   );
   const [query, setQuery] = useState("");
-  const [showTranslation, setShowTranslation] = useState(() => load("quran-translation", false));
+  const [showTranslation, setShowTranslation] = useState(() =>
+    load("quran-translation", false),
+  );
   const pinch = useRef<{ distance: number; font: number } | null>(null);
   const en = lang === "en";
 
@@ -77,32 +80,43 @@ export default function QuranExperience({
   }, []);
 
   async function openSura(id: number, ayah?: number) {
-    const [arRes, enRes] = await Promise.all([
-      fetch(`./quran/${id}.json`),
-      fetch(`./quran/en/${id}.json`).catch(() => null),
-    ]);
-    if (!arRes.ok)
+    const response = await fetch(`./quran/${id}.json`);
+    if (!response.ok)
       throw new Error(
         en ? `Could not load chapter ${id}` : `تعذر تحميل السورة رقم ${id}`,
       );
-    const arData = (await arRes.json()) as Chapter;
-    let enData: Chapter | null = null;
-    if (enRes && enRes.ok) {
-      try { enData = (await enRes.json()) as Chapter; } catch {}
-    }
+    const data = (await response.json()) as Chapter;
     const info = surahs.find((s) => s.id === id);
-    const merged: Chapter = {
-      ...arData,
+
+    // The English file carries a `translation` string per verse (trusted, bundled
+    // offline — see Settings/About for the source note). It's optional: if this
+    // fetch fails for any reason the Arabic reading experience is unaffected, the
+    // translation toggle simply has nothing to show.
+    let translations: Record<number, string> = {};
+    try {
+      const enResponse = await fetch(`./quran/en/${id}.json`);
+      if (enResponse.ok) {
+        const enData = (await enResponse.json()) as {
+          verses: { id: number; translation?: string }[];
+        };
+        translations = Object.fromEntries(
+          enData.verses.map((v) => [v.id, v.translation ?? ""]),
+        );
+      }
+    } catch {
+      translations = {};
+    }
+
+    setChapter({
+      ...data,
       id,
-      name: info?.name ?? arData.name,
-      total_verses: info?.total_verses ?? arData.total_verses,
-      verses: arData.verses.map((v, i) => ({
+      name: info?.name ?? data.name,
+      total_verses: info?.total_verses ?? data.total_verses,
+      verses: data.verses.map((v) => ({
         ...v,
-        translation: enData?.verses?.[i]?.translation,
-        transliteration: enData?.verses?.[i]?.transliteration,
+        translation: translations[v.id],
       })),
-    };
-    setChapter(merged);
+    });
     window.setTimeout(() => {
       if (ayah)
         document
@@ -116,6 +130,11 @@ export default function QuranExperience({
     const value = clamp(Math.round(next), 22, 48);
     setFont(value);
     save("quran-font", value);
+  }
+  function toggleTranslation() {
+    const next = !showTranslation;
+    setShowTranslation(next);
+    save("quran-translation", next);
   }
   function distance(touches: React.TouchList) {
     const a = touches[0],
@@ -165,18 +184,35 @@ export default function QuranExperience({
             </button>
           </div>
         </div>
-        <div className="readerControls">
-          <button className={showTranslation ? "on" : ""} onClick={() => { const v = !showTranslation; setShowTranslation(v); save("quran-translation", v); }}>
-            {en ? "Translation" : "الترجمة"}
+        <div className="readerToolsRow">
+          <button
+            className={`translationToggle${showTranslation ? " on" : ""}`}
+            onClick={toggleTranslation}
+          >
+            <Languages size={14} />
+            {showTranslation
+              ? en
+                ? "Hide translation"
+                : "إخفاء الترجمة"
+              : en
+                ? "Show translation"
+                : "إظهار الترجمة"}
           </button>
         </div>
+        {showTranslation && (
+          <p className="translationSourceNote">
+            {en
+              ? "Translation of the meanings (Sahih International style), bundled offline."
+              : "ترجمة معانٍ (بأسلوب Sahih International)، محفوظة داخل التطبيق للعمل دون إنترنت."}
+          </p>
+        )}
         <p className="pinchHint">
           {en
             ? "Pinch with two fingers to zoom"
             : "استخدم إصبعين للتكبير والتصغير"}
         </p>
         <section
-          className="mushafPage"
+          className={`mushafPage${showTranslation ? " withTranslation" : ""}`}
           style={{ fontSize: font }}
           onTouchStart={(e) => {
             if (e.touches.length === 2)
@@ -199,22 +235,24 @@ export default function QuranExperience({
             const key = `${chapter.id}:${verse.id}`,
               marked = !!marks[key];
             return (
-              <span
+              <div
                 className="verse"
                 id={`ayah-${chapter.id}-${verse.id}`}
                 key={verse.id}
               >
                 {sanitizeQuranText(verse.text)} <b>﴿{verse.id}﴾</b>
-                {showTranslation && verse.translation && (
-                  <span className="verseTranslation">{verse.translation}</span>
-                )}
                 <button
                   className={marked ? "marked" : ""}
                   onClick={() => toggleBookmark(verse)}
                 >
                   {marked ? <BookmarkCheck /> : <Bookmark />}
                 </button>{" "}
-              </span>
+                {showTranslation && verse.translation && (
+                  <p className="verseTranslation" dir="ltr" lang="en">
+                    {verse.translation}
+                  </p>
+                )}
+              </div>
             );
           })}
         </section>

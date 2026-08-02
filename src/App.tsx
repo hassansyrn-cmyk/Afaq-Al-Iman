@@ -29,18 +29,19 @@ import {
   ChevronLeft,
   CheckCircle2,
   Undo2,
-  Filter,
-  BedDouble,
-  UtensilsCrossed,
-  Building2,
-  Droplets,
-  BellRing,
-  Sparkles,
 } from "lucide-react";
 import { cities, type City } from "./cities";
-import { adhkar, adhkarCategories, type AdhkarItem, type AdhkarCategory } from "./adhkar";
-import { hadiths, type Hadith } from "./hadith";
-import { formatHijri } from "./hijri";
+import { adhkar } from "./adhkar";
+import { hadiths } from "./hadith";
+import {
+  HadithBook,
+  HadithResult,
+  getFavorites,
+  getRandomDailyHadith,
+  isFavorite,
+  searchHadithLibrary,
+  toggleFavorite,
+} from "./hadithApi";
 import { PrayerWidget } from "./native";
 type Tab = "home" | "quran" | "adhkar" | "khatma" | "more";
 type More = "menu" | "qibla" | "hadith" | "settings";
@@ -211,6 +212,14 @@ export default function App() {
       load("adhkar-counts", {}),
     ),
     [query, setQuery] = useState(""),
+    [hadithBook, setHadithBook] = useState<HadithBook>("bukhari"),
+    [hadithResults, setHadithResults] = useState<HadithResult[]>([]),
+    [hadithSearching, setHadithSearching] = useState(false),
+    [hadithView, setHadithView] = useState<"search" | "favorites">("search"),
+    [hadithFavorites, setHadithFavorites] = useState<HadithResult[]>(() =>
+      getFavorites(),
+    ),
+    [dailyHadith, setDailyHadith] = useState<HadithResult | null>(null),
     [prompt, setPrompt] = useState(() => !load("notification-intro", false)),
     [modal, setModal] = useState<"privacy" | "about" | null>(null),
     [remaining, setRemaining] = useState(""),
@@ -222,9 +231,7 @@ export default function App() {
       useState<NotificationSettings>(() =>
         load("notification-settings", DEFAULT_NOTIFICATION_SETTINGS),
       ),
-    [notificationStatus, setNotificationStatus] = useState(""),
-    [adhkarCategory, setAdhkarCategory] = useState<AdhkarCategory | 'all'>('all'),
-    [adhkarQuery, setAdhkarQuery] = useState('');
+    [notificationStatus, setNotificationStatus] = useState("");
   const en = lang === "en";
   const tr = (ar: string, english: string) => (en ? english : ar);
   useEffect(() => {
@@ -232,6 +239,15 @@ export default function App() {
     document.documentElement.dir = en ? "ltr" : "rtl";
     save("language", lang);
   }, [lang, en]);
+  useEffect(() => {
+    let active = true;
+    void getRandomDailyHadith(new Date(), en).then((h) => {
+      if (active) setDailyHadith(h);
+    });
+    return () => {
+      active = false;
+    };
+  }, [en]);
   useEffect(() => {
     const timer = window.setInterval(() => setClock(Date.now()), 1000);
     return () => window.clearInterval(timer);
@@ -341,7 +357,6 @@ export default function App() {
           : next[1],
         city: en ? city.en : city.ar,
         target: next[2].getTime(),
-        hijri: formatHijri(new Date(clock), lang),
       }).catch(() => undefined);
   }, [next[0], next[2].getTime(), city.id, lang]);
   useEffect(() => {
@@ -415,17 +430,15 @@ export default function App() {
       name: tr("اختبار الإشعارات", "Notification test"),
       importance: 5,
       vibration: true,
-      sound: 'android.resource://com.afaq.iman/raw/adhan_notification',
     } as any);
     await LocalNotifications.schedule({
       notifications: [
         {
           id: 909090,
           title: tr("اختبار آفاق الإيمان", "Afaq Al-Iman test"),
-          body: tr("الإشعارات تعمل بنجاح ✓", "Notifications are working ✓"),
+          body: tr("الإشعارات تعمل بنجاح", "Notifications are working"),
           schedule: { at: new Date(Date.now() + 5000), allowWhileIdle: true },
           channelId: "afaq-test",
-          smallIcon: "ic_stat_afaq",
         },
       ],
     });
@@ -471,7 +484,6 @@ export default function App() {
     const old = await LocalNotifications.getPending();
     if (old.notifications.length)
       await LocalNotifications.cancel({ notifications: old.notifications });
-    const CUSTOM_SOUND = 'android.resource://com.afaq.iman/raw/adhan_notification';
     const prayerChannel = `prayer-${notificationSettings.sound ? "sound" : "silent"}-${notificationSettings.vibration ? "vibrate" : "quiet"}`;
     const reminderChannel = `reminders-${notificationSettings.sound ? "sound" : "silent"}-${notificationSettings.vibration ? "vibrate" : "quiet"}`;
     await LocalNotifications.createChannel({
@@ -479,14 +491,14 @@ export default function App() {
       name: tr("مواقيت الصلاة", "Prayer times"),
       importance: 5,
       vibration: notificationSettings.vibration,
-      sound: notificationSettings.sound ? CUSTOM_SOUND : null,
+      sound: notificationSettings.sound ? undefined : null,
     } as any);
     await LocalNotifications.createChannel({
       id: reminderChannel,
       name: tr("التذكيرات", "Reminders"),
       importance: 4,
       vibration: notificationSettings.vibration,
-      sound: notificationSettings.sound ? CUSTOM_SOUND : null,
+      sound: notificationSettings.sound ? undefined : null,
     } as any);
     const now = new Date(),
       list: any[] = [];
@@ -516,25 +528,12 @@ export default function App() {
             title: notificationSettings.prePrayerMinutes
               ? tr(
                   `تبقى ${notificationSettings.prePrayerMinutes} دقيقة لصلاة ${x[0]}`,
-                  `${notificationSettings.prePrayerMinutes} minutes until ${({
-                  "الفجر": en ? "Fajr" : "الفجر",
-                  "الظهر": en ? "Dhuhr" : "الظهر",
-                  "العصر": en ? "Asr" : "العصر",
-                  "المغرب": en ? "Maghrib" : "المغرب",
-                  "العشاء": en ? "Isha" : "العشاء",
-                } as Record<string, string>)[x[0]] || x[0]}`,
+                  `${notificationSettings.prePrayerMinutes} minutes until prayer`,
                 )
-              : tr(`حان وقت صلاة ${x[0]}`, `It is time for ${({
-                  "الفجر": "Fajr",
-                  "الظهر": "Dhuhr",
-                  "العصر": "Asr",
-                  "المغرب": "Maghrib",
-                  "العشاء": "Isha",
-                } as Record<string, string>)[x[0]] || x[0]}`),
+              : tr(`حان وقت صلاة ${x[0]}`, `It is time for prayer`),
             body: en ? city.en : city.ar,
             schedule: { at: prayerAt, allowWhileIdle: true },
             channelId: prayerChannel,
-            smallIcon: "ic_stat_afaq",
           });
       });
       const a = new Date(d);
@@ -542,11 +541,10 @@ export default function App() {
       if (notificationSettings.morningAdhkar && a > now)
         list.push({
           id: 2000 + day,
-          title: tr("أذكار الصباح", "Morning Adhkar"),
-          body: tr("ابدأ يومك بذكر الله", "Start your day with the remembrance of Allah"),
-          schedule: { at: a, allowWhileIdle: true },
+          title: "أذكار الصباح",
+          body: "ابدأ يومك بذكر الله",
+          schedule: { at: a },
           channelId: reminderChannel,
-          smallIcon: "ic_stat_afaq",
         });
       const evening = new Date(d);
       evening.setHours(18, 0, 0, 0);
@@ -557,18 +555,16 @@ export default function App() {
           body: tr("اختم يومك بذكر الله", "End your day with remembrance"),
           schedule: { at: evening, allowWhileIdle: true },
           channelId: reminderChannel,
-          smallIcon: "ic_stat_afaq",
         });
       const w = new Date(d);
       w.setHours(20, 0, 0, 0);
       if (notificationSettings.dailyWird && w > now)
         list.push({
           id: 1000 + day,
-          title: tr("وردك اليومي", "Daily Quran Reminder"),
-          body: tr("خصص دقائق لورد القرآن", "Set aside time for your daily Quran reading"),
-          schedule: { at: w, allowWhileIdle: true },
+          title: "وردك اليومي",
+          body: "خصص دقائق لورد القرآن",
+          schedule: { at: w },
           channelId: reminderChannel,
-          smallIcon: "ic_stat_afaq",
         });
       const h = new Date(d);
       h.setHours(12, 0, 0, 0);
@@ -576,11 +572,10 @@ export default function App() {
         const item = hadiths[(day + new Date().getDate()) % hadiths.length];
         list.push({
           id: 3000 + day,
-          title: tr("حديث اليوم", "Hadith of the Day"),
-          body: en ? `${item.en} — ${item.source}` : `${item.ar} — ${item.source}`,
-          schedule: { at: h, allowWhileIdle: true },
+          title: "حديث اليوم",
+          body: `${item[0]} — ${item[2]}`,
+          schedule: { at: h },
           channelId: reminderChannel,
-          smallIcon: "ic_stat_afaq",
         });
       }
     }
@@ -598,10 +593,20 @@ export default function App() {
     setKhatma(p);
     save(KHATMA_STORAGE_KEY, p);
   }
-  const filtered = hadiths.filter((h) =>
-      (h.ar + h.en + h.source).toLowerCase().includes(query.toLowerCase()),
-    ),
-    ks = metrics(khatma);
+  async function runHadithSearch() {
+    if (!query.trim()) {
+      setHadithResults([]);
+      return;
+    }
+    setHadithSearching(true);
+    const results = await searchHadithLibrary(hadithBook, query.trim(), en);
+    setHadithResults(results);
+    setHadithSearching(false);
+  }
+  function toggleHadithFavorite(item: HadithResult) {
+    setHadithFavorites(toggleFavorite(item));
+  }
+  const ks = metrics(khatma);
   return (
     <div className="app" dir={en ? "ltr" : "rtl"}>
       <header>
@@ -666,12 +671,6 @@ export default function App() {
                 <MapPin /> {en ? city.en : city.ar}
               </p>
             </section>
-            <section className="hijriCard glass">
-              <div className="hijriDateRow">
-                <Moon />
-                <span>{formatHijri(new Date(clock), lang)}</span>
-              </div>
-            </section>
             <section className="prayerGrid">
               {times.map((x) => (
                 <div className={x[0] === next[0] ? "active" : ""} key={x[0]}>
@@ -727,11 +726,20 @@ export default function App() {
               </button>
             </section>
             <section className="glass">
-              <small>{tr("حديث عشوائي", "Random Hadith")}</small>
-              <blockquote>
-                «{hadiths[new Date().getDate() % hadiths.length].ar}»
-              </blockquote>
-              <em>{hadiths[new Date().getDate() % hadiths.length].source}</em>
+              <small>{tr("حديث اليوم", "Hadith of the Day")}</small>
+              {dailyHadith ? (
+                <>
+                  <blockquote>«{dailyHadith.arabic}»</blockquote>
+                  <em>
+                    {dailyHadith.bookName}
+                    {dailyHadith.hadithNumber > 0
+                      ? ` ${dailyHadith.hadithNumber}`
+                      : ""}
+                  </em>
+                </>
+              ) : (
+                <p className="hint">{tr("جارٍ التحميل...", "Loading...")}</p>
+              )}
               <button
                 onClick={() => {
                   setTab("more");
@@ -761,99 +769,61 @@ export default function App() {
                   : "عدادات محفوظة على الجهاز"
               }
             />
-            <div className="adhkarFilters">
-              <button
-                className={adhkarCategory === 'all' ? 'adhkarFilterActive' : ''}
-                onClick={() => setAdhkarCategory('all')}
-              >
-                {en ? 'All' : 'الكل'}
-              </button>
-              {adhkarCategories.map(cat => (
-                <button
-                  key={cat.id}
-                  className={adhkarCategory === cat.id ? 'adhkarFilterActive' : ''}
-                  onClick={() => setAdhkarCategory(cat.id)}
-                >
-                  {en ? cat.en : cat.ar}
-                </button>
-              ))}
-            </div>
-            <label className="search">
-              <Search />
-              <input
-                value={adhkarQuery}
-                onChange={e => setAdhkarQuery(e.target.value)}
-                placeholder={en ? 'Search adhkar...' : 'ابحث في الأذكار...'}
-              />
-            </label>
             <button
               className="resetAll"
               onClick={() => {
                 setCounts({});
                 save("adhkar-counts", {});
-                setAdhkarCategory('all');
-                setAdhkarQuery('');
               }}
             >
               <RotateCcw />
               {en ? "Reset all" : "إعادة ضبط الكل"}
             </button>
-            {(() => {
-              const filteredAdhkar = adhkar.filter(a =>
-                (adhkarCategory === 'all' || a.category === adhkarCategory) &&
-                (!adhkarQuery || a.ar.includes(adhkarQuery))
-              );
-              return (
-                <div className="zikrList">
-                  {filteredAdhkar.map((item) => {
-                    const n = counts[item.id] || 0,
-                      p = (n / item.count) * 100;
-                    return (
-                      <button
-                        className={"zikr " + (n === item.count ? "done" : "")}
-                        key={item.id}
-                        onClick={async () => {
-                          if (n >= item.count) return;
-                          const x = n + 1,
-                            v = { ...counts, [item.id]: x };
-                          setCounts(v);
-                          save("adhkar-counts", v);
-                          if (Capacitor.isNativePlatform())
-                            x === item.count
-                              ? await Haptics.notification({
-                                  type: NotificationType.Success,
-                                })
-                              : await Haptics.impact({ style: ImpactStyle.Light });
-                        }}
-                      >
-                        <div
-                          className="ring"
-                          style={{
-                            background: `conic-gradient(var(--gold) ${p}%,var(--line) 0)`,
-                          }}
-                        >
-                          <i>{n}</i>
-                          <small>/{item.count}</small>
-                        </div>
-                        <div className="zikrText">
-                          <p>{item.ar}</p>
-                          {item.source && <small className="zikrSource">{item.source}</small>}
-                        </div>
-                        <span>
-                          {n === item.count
-                            ? en
-                              ? "Complete"
-                              : "مكتمل"
-                            : en
-                              ? "Tap to count"
-                              : "اضغط للعد"}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              );
-            })()}
+            <div className="zikrList">
+              {adhkar.map(([id, text, target]) => {
+                const n = counts[id] || 0,
+                  p = (n / target) * 100;
+                return (
+                  <button
+                    className={"zikr " + (n === target ? "done" : "")}
+                    key={id}
+                    onClick={async () => {
+                      if (n >= target) return;
+                      const x = n + 1,
+                        v = { ...counts, [id]: x };
+                      setCounts(v);
+                      save("adhkar-counts", v);
+                      if (Capacitor.isNativePlatform())
+                        x === target
+                          ? await Haptics.notification({
+                              type: NotificationType.Success,
+                            })
+                          : await Haptics.impact({ style: ImpactStyle.Light });
+                    }}
+                  >
+                    <div
+                      className="ring"
+                      style={{
+                        background: `conic-gradient(var(--gold) ${p}%,var(--line) 0)`,
+                      }}
+                    >
+                      <i>{n}</i>
+                      <small>/{target}</small>
+                    </div>
+                    <p>{text}</p>
+                    <span>
+                      {n === target
+                        ? en
+                          ? "Complete"
+                          : "مكتمل"
+                        : en
+                          ? "Tap to count"
+                          : "اضغط للعد"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </>
         )}
         {tab === "khatma" && (
@@ -906,26 +876,120 @@ export default function App() {
               image={images.hadith}
               title={tr("مكتبة الأحاديث", "Hadith Library")}
               sub={tr(
-                "بحث عربي وإنجليزي في البيانات المتاحة",
-                "Search in Arabic or English",
+                "صحيح البخاري وصحيح مسلم كاملَين",
+                "The full Sahih al-Bukhari and Sahih Muslim",
               )}
             />
-            <label className="search">
-              <Search />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={tr("ابحث بكلمة أو رقم", "Search by word")}
-              />
-            </label>
-            {filtered.map((h, i) => (
-              <article className="glass" key={i}>
-                <p>«{h.ar}»</p>
-                <p>{h.en}</p>
-                <small>{h.source}</small>
-                {h.narrator && <em>{h.narrator}</em>}
-              </article>
-            ))}
+            <div className="hadithTabs">
+              <button
+                className={hadithView === "search" ? "on" : ""}
+                onClick={() => setHadithView("search")}
+              >
+                {tr("بحث", "Search")}
+              </button>
+              <button
+                className={hadithView === "favorites" ? "on" : ""}
+                onClick={() => setHadithView("favorites")}
+              >
+                <Heart size={14} />
+                {tr("المفضلة", "Favorites")}
+                {hadithFavorites.length > 0 && (
+                  <i>{hadithFavorites.length}</i>
+                )}
+              </button>
+            </div>
+            {hadithView === "search" ? (
+              <>
+                <div className="hadithBookTabs">
+                  <button
+                    className={hadithBook === "bukhari" ? "on" : ""}
+                    onClick={() => setHadithBook("bukhari")}
+                  >
+                    {tr("صحيح البخاري", "Sahih al-Bukhari")}
+                  </button>
+                  <button
+                    className={hadithBook === "muslim" ? "on" : ""}
+                    onClick={() => setHadithBook("muslim")}
+                  >
+                    {tr("صحيح مسلم", "Sahih Muslim")}
+                  </button>
+                </div>
+                <label className="search">
+                  <Search />
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && void runHadithSearch()}
+                    placeholder={tr("ابحث بكلمة", "Search by word")}
+                  />
+                  <button className="link" onClick={() => void runHadithSearch()}>
+                    {tr("بحث", "Go")}
+                  </button>
+                </label>
+                {hadithSearching && (
+                  <p className="hint">{tr("جارٍ البحث...", "Searching...")}</p>
+                )}
+                {!hadithSearching &&
+                  query.trim() &&
+                  hadithResults.length === 0 && (
+                    <p className="hint">
+                      {tr(
+                        "لا توجد نتائج، أو يلزم اتصال بالإنترنت لأول بحث في هذا الكتاب.",
+                        "No results — or an internet connection is needed the first time you search this book.",
+                      )}
+                    </p>
+                  )}
+                {hadithResults.map((h) => (
+                  <article className="glass hadithCard" key={`${h.book}-${h.hadithNumber}`}>
+                    <p>«{h.arabic}»</p>
+                    {h.english && <p className="hadithEnglish">{h.english}</p>}
+                    <div className="hadithMeta">
+                      <small>
+                        {h.bookName} {h.hadithNumber}
+                      </small>
+                      <button onClick={() => toggleHadithFavorite(h)}>
+                        <Heart
+                          size={16}
+                          fill={
+                            isFavorite(h, hadithFavorites)
+                              ? "currentColor"
+                              : "none"
+                          }
+                        />
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </>
+            ) : hadithFavorites.length === 0 ? (
+              <p className="hint">
+                {tr(
+                  "لم تُضِف أي حديث إلى المفضلة بعد.",
+                  "You haven't added any hadith to favorites yet.",
+                )}
+              </p>
+            ) : (
+              hadithFavorites.map((h) => (
+                <article className="glass hadithCard" key={`${h.book}-${h.hadithNumber}`}>
+                  <p>«{h.arabic}»</p>
+                  {h.english && <p className="hadithEnglish">{h.english}</p>}
+                  <div className="hadithMeta">
+                    <small>
+                      {h.bookName} {h.hadithNumber}
+                    </small>
+                    <button onClick={() => toggleHadithFavorite(h)}>
+                      <Heart size={16} fill="currentColor" />
+                    </button>
+                  </div>
+                </article>
+              ))
+            )}
+            <p className="translationSourceNote">
+              {tr(
+                "المصدر: صحيح البخاري وصحيح مسلم، ولا يتم اختراع أي نص أو رقم حديث.",
+                "Source: Sahih al-Bukhari and Sahih Muslim — no text or hadith number is invented.",
+              )}
+            </p>
           </>
         )}
         {tab === "more" && more === "settings" && (
@@ -1142,16 +1206,35 @@ export default function App() {
             </button>
             {modal === "privacy" ? (
               <>
-                <h2>سياسة الخصوصية</h2>
+                <h2>{tr("سياسة الخصوصية", "Privacy Policy")}</h2>
                 <p>
-                  تُحفظ المدينة والعلامات والختمة والإعدادات محليًا، ولا يبيع
-                  التطبيق البيانات الشخصية.
+                  {tr(
+                    "تُحفظ المدينة والعلامات والختمة والإعدادات محليًا على جهازك، ولا يبيع التطبيق أو يشارك بياناتك الشخصية مع أي جهة.",
+                    "Your city, bookmarks, khatma plan, and settings are stored locally on your device. The app does not sell or share your personal data with anyone.",
+                  )}
                 </p>
               </>
             ) : (
               <>
-                <h2>حول البرنامج</h2>
-                <p>آفاق الإيمان 1.5.0. المواقيت حسابية وقد تختلف بدقائق.</p>
+                <h2>{tr("حول البرنامج", "About")}</h2>
+                <p>
+                  {tr(
+                    "آفاق الإيمان 1.5.0. مواقيت الصلاة حسابية فلكيًا وقد تختلف بدقائق قليلة عن الجهة الرسمية في بلدك.",
+                    "Afaq Al-Iman 1.5.0. Prayer times are calculated astronomically and may differ by a few minutes from your local official authority.",
+                  )}
+                </p>
+                <p>
+                  {tr(
+                    "نص القرآن الكريم مأخوذ من رواية حفص عن عاصم (نص تنزيل الموثوق)، ومرفق معه ترجمة معانٍ باللغة الإنجليزية (بأسلوب Sahih International) محفوظة بالكامل داخل التطبيق للعمل دون اتصال بالإنترنت.",
+                    "The Quran text follows the Hafs an Asim narration (the trusted Tanzil text), bundled together with an English translation of the meanings (Sahih International style) fully offline within the app.",
+                  )}
+                </p>
+                <p>
+                  {tr(
+                    "الأحاديث مصدرها صحيح البخاري وصحيح مسلم، ولا يتم اختراع أي نص أو رقم حديث.",
+                    "Hadiths are sourced from Sahih al-Bukhari and Sahih Muslim — no text or hadith number is invented.",
+                  )}
+                </p>
               </>
             )}
           </section>
@@ -1263,7 +1346,7 @@ function KhatmaPage({
 }: {
   plan: KhatmaState;
   updatePlan: (p: KhatmaState) => void;
-  onRead: () => void;
+  onRead: (p: number) => void;
   en: boolean;
 }) {
   const {
@@ -1383,7 +1466,7 @@ function KhatmaPage({
         {!complete && (
           <button
             className="secondary khatmaAction"
-            onClick={() => onRead()}
+            onClick={() => onRead(startPage)}
           >
             <BookOpen />
             {en ? "Read today's wird" : "قراءة ورد اليوم"}
@@ -1500,13 +1583,10 @@ function QiblaCompass({ city, en }: { city: City; en: boolean }) {
   const bearing = Math.round(Qibla(new Coordinates(city.lat, city.lng))),
     [heading, setHeading] = useState<number | null>(null),
     buffer = useRef<number[]>([]),
-    last = useRef(0),
-    [calibrating, setCalibrating] = useState(false);
+    last = useRef(0);
   useEffect(() => {
-    setCalibrating(true);
-    const timer = setTimeout(() => setCalibrating(false), 3000);
     const handler = (e: any) => {
-      if (performance.now() - last.current < 80) return;
+      if (performance.now() - last.current < 100) return;
       last.current = performance.now();
       let v =
         typeof e.webkitCompassHeading === "number"
@@ -1517,74 +1597,50 @@ function QiblaCompass({ city, en }: { city: City; en: boolean }) {
       if (v === null) return;
       v = (v + (screen.orientation?.angle || 0) + 360) % 360;
       buffer.current.push(v);
-      if (buffer.current.length > 40) buffer.current.shift();
+      if (buffer.current.length > 20) buffer.current.shift();
       const s = buffer.current.reduce(
-          (a, x) => a + Math.sin((x * Math.PI) / 180), 0),
+          (a, x) => a + Math.sin((x * Math.PI) / 180),
+          0,
+        ),
         c = buffer.current.reduce(
-          (a, x) => a + Math.cos((x * Math.PI) / 180), 0),
+          (a, x) => a + Math.cos((x * Math.PI) / 180),
+          0,
+        ),
         avg = ((Math.atan2(s, c) * 180) / Math.PI + 360) % 360;
-      setHeading((p) => {
-        if (p === null) return avg;
-        return Math.abs(((avg - p + 540) % 360) - 180) > 1 ? avg : p;
-      });
+      setHeading((p) =>
+        p === null || Math.abs(((avg - p + 540) % 360) - 180) > 2.5 ? avg : p,
+      );
     };
     window.addEventListener("deviceorientationabsolute", handler, true);
     window.addEventListener("deviceorientation", handler, true);
     return () => {
-      clearTimeout(timer);
       window.removeEventListener("deviceorientationabsolute", handler, true);
       window.removeEventListener("deviceorientation", handler, true);
     };
   }, []);
-  const delta = heading === null ? bearing : ((bearing - heading + 540) % 360) - 180;
-  const onTarget = heading !== null && Math.abs(Math.round(delta)) <= 3;
+  const delta =
+    heading === null ? bearing : ((bearing - heading + 540) % 360) - 180;
   return (
     <section className="compassCard">
       <div className="compassDial">
-        {Array.from({ length: 36 }, (_, i) => {
-          const angle = i * 10;
-          const isCardinal = angle % 90 === 0;
-          const isMajor = angle % 30 === 0;
-          return (
-            <div
-              key={angle}
-              className={`compassTick ${isCardinal ? "cardinalTick" : isMajor ? "majorTick" : ""}`}
-              style={{ transform: `rotate(${angle}deg)` }}
-            />
-          );
-        })}
-        <b className="compassN">N</b>
-        <b className="cardinalE">E</b>
-        <b className="cardinalS">S</b>
-        <b className="cardinalW">W</b>
-        <svg className="qiblaArc" viewBox="0 0 200 200">
-          <circle cx="100" cy="100" r="92" fill="none"
-            stroke={onTarget ? "var(--gold)" : "rgba(229,197,102,0.25)"}
-            strokeWidth="3" strokeDasharray={onTarget ? "none" : "4 4"}
-            strokeDashoffset={`${-bearing * 2.55}`} strokeLinecap="round" />
-        </svg>
-        <div className={`redArrow ${onTarget ? "onTarget" : ""}`}
-          style={{ transform: `translate(-50%,-100%) rotate(${delta}deg)` }} />
+        <b>N</b>
+        <div
+          className="redArrow"
+          style={{ transform: `translate(-50%,-100%) rotate(${delta}deg)` }}
+        />
         <div className="kaabaMark">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill={onTarget ? "var(--gold)" : "currentColor"}>
-            <path d="M12 2L8 8h8L12 2zM8 8v10l4 4 4-4V8H8z" />
-          </svg>
-          <small>{en ? "Kaaba" : "الكعبة"}</small>
+          ◆<small>{en ? "Kaaba" : "الكعبة"}</small>
         </div>
       </div>
-      <h2 className={onTarget ? "qiblaLocked" : ""}>
-        {bearing}° {en ? "from North" : "من الشمال"}
-        {onTarget && <span className="qiblaCheck"> ✓</span>}
-      </h2>
-      <p className="qiblaStatus">
-        {calibrating
-          ? en ? "Calibrating... move your device in a figure-8" : "جارٍ المعايرة... حرّك جهاز على شكل ثمانية"
-          : heading === null
-            ? en ? "Sensor unavailable — use the fixed bearing" : "المستشعر غير متاح — استخدم الدرجة الثابتة"
-            : onTarget
-              ? en ? "You are now facing the Qibla" : "أنت الآن متجه نحو القبلة"
-              : en ? `${Math.abs(Math.round(delta))}° ${delta > 0 ? "left" : "right"}`
-                     : `تبقى ${Math.abs(Math.round(delta))}° ${delta > 0 ? "يمين" : "يسار"}`}
+      <h2>{bearing}° {en ? "from North" : "من الشمال"}</h2>
+      <p>
+        {heading === null
+          ? en
+            ? "Sensor unavailable, using the fixed bearing"
+            : "المستشعر غير متاح، استخدم الدرجة الثابتة"
+          : en
+            ? `${Math.abs(Math.round(delta))}° remaining to face the Qibla`
+            : `تبقى ${Math.abs(Math.round(delta))}° للوصول إلى القبلة`}
       </p>
     </section>
   );
