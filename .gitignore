@@ -1,0 +1,17 @@
+
+# Generated files
+node_modules/
+dist/
+build/
+.gradle/
+android/.gradle/
+android/app/build/
+*.log
+.DS_Store
+
+# Secrets and signing files
+.env
+.env.*
+*.jks
+*.keystore
+key.properties

@@ -1,0 +1,18 @@
+@font-face {
+  font-family: "Amiri Quran Local";
+  src: url("/fonts/amiri-quran-arabic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
+.mushafPage,
+.mushafPage .verse {
+  font-family: "Amiri Quran Local", "Amiri Quran", "Noto Naskh Arabic", serif;
+  direction: rtl;
+  unicode-bidi: isolate;
+  font-variant-ligatures: common-ligatures;
+  font-feature-settings: "liga" 1, "rlig" 1, "calt" 1, "mark" 1, "mkmk" 1;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
