@@ -1,0 +1,47 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Base platform -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M3,21 L21,21 L21,22.5 L3,22.5 Z" />
+    <!-- Left minaret shaft -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M4.5,11 L6.5,11 L6.5,21 L4.5,21 Z" />
+    <!-- Left minaret dome -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M5.5,8 C4.4,8 3.6,9 3.6,10.2 C3.6,10.7 3.8,11 4.0,11.2 L7.0,11.2 C7.2,11 7.4,10.7 7.4,10.2 C7.4,9 6.6,8 5.5,8 Z" />
+    <!-- Left minaret tip -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M5.5,5 L6.2,7 L4.8,7 Z" />
+    <!-- Right minaret shaft -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M17.5,11 L19.5,11 L19.5,21 L17.5,21 Z" />
+    <!-- Right minaret dome -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M18.5,8 C17.4,8 16.6,9 16.6,10.2 C16.6,10.7 16.8,11 17.0,11.2 L20.0,11.2 C20.2,11 20.4,10.7 20.4,10.2 C20.4,9 19.6,8 18.5,8 Z" />
+    <!-- Right minaret tip -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M18.5,5 L19.2,7 L17.8,7 Z" />
+    <!-- Main building body -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M8,13 L16,13 L16,21 L8,21 Z" />
+    <!-- Main dome (using arc via path) -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M8,13 C8,7.5 10,5.5 12,5.5 C14,5.5 16,7.5 16,13 Z" />
+    <!-- Dome finial (small spire) -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,2 L12.6,4 L11.4,4 Z" />
+    <!-- Arched doorway (carved out using background color via even-odd would not work on white silhouette; instead we keep solid silhouette) -->
+</vector>

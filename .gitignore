@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Web build
+dist/
+build/
+
+# Android generated files
+.gradle/
+android/.gradle/
+android/app/build/
+android/build/
+local.properties
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+key.properties
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/
