@@ -50,10 +50,12 @@ public class PrayerWidgetProvider extends AppWidgetProvider {
         long remaining = Math.max(0L, target - now);
         long base = SystemClock.elapsedRealtime() + remaining;
         String city = p.getString("city", "آفاق الإيمان");
+        String hijri = p.getString("hijri", null);
         String prayerTime = DateFormat.getTimeFormat(context).format(new Date(target));
         for (int id : ids) {
             RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_prayer);
             views.setTextViewText(R.id.widget_city, city);
+            views.setTextViewText(R.id.widget_hijri, hijri != null ? hijri : "");
             views.setTextViewText(R.id.widget_prayer, prayer);
             views.setTextViewText(R.id.widget_prayer_time, prayerTime);
             views.setChronometer(R.id.widget_countdown, base, null, true);

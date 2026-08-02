@@ -26,17 +26,21 @@ import {
   Vibrate,
   Shield,
   Info,
-  Bookmark,
-  BookmarkCheck,
   ChevronLeft,
-  Minus,
-  Plus,
   CheckCircle2,
   Undo2,
+  Filter,
+  BedDouble,
+  UtensilsCrossed,
+  Building2,
+  Droplets,
+  BellRing,
+  Sparkles,
 } from "lucide-react";
 import { cities, type City } from "./cities";
-import { adhkar } from "./adhkar";
-import { hadiths } from "./hadith";
+import { adhkar, adhkarCategories, type AdhkarItem, type AdhkarCategory } from "./adhkar";
+import { hadiths, type Hadith } from "./hadith";
+import { formatHijri } from "./hijri";
 import { PrayerWidget } from "./native";
 type Tab = "home" | "quran" | "adhkar" | "khatma" | "more";
 type More = "menu" | "qibla" | "hadith" | "settings";
@@ -127,12 +131,37 @@ function loadKhatma(): KhatmaState {
   }
 }
 function metrics(p: KhatmaState) {
-  const pagesPerDay = Math.ceil(604 / p.goalDays),
-    completedDays = p.completedDates.length,
-    pagesRead = Math.min(604, completedDays * pagesPerDay),
-    startPage = pagesRead >= 604 ? 604 : pagesRead + 1,
-    endPage = Math.min(604, startPage + pagesPerDay - 1),
-    progress = Math.min(100, Math.round((pagesRead / 604) * 100));
+  const TOTAL = 604;
+  // Base pace from the original goal, used to infer how many pages each already
+  // completed day represents (we only store which dates were completed, not an
+  // explicit page count per day).
+  const basePace = Math.ceil(TOTAL / p.goalDays);
+  const completedDays = p.completedDates.length;
+  const pagesRead = Math.min(TOTAL, completedDays * basePace);
+
+  // Calendar days elapsed since the plan started (not "days completed"). Using the
+  // calendar instead of the completed-day count means a missed day still counts
+  // against the remaining time, so today's target grows to compensate — this is
+  // what actually redistributes the remaining pages over the remaining days
+  // instead of silently pushing the finish date out forever.
+  const daysElapsed = Math.max(
+    0,
+    Math.floor(
+      (Date.now() - new Date(`${p.startedAt}T00:00:00`).getTime()) / 86400000,
+    ),
+  );
+  const remainingPlannedDays = Math.max(1, p.goalDays - daysElapsed);
+  const remainingPages = TOTAL - pagesRead;
+  const pagesPerDay =
+    pagesRead >= TOTAL
+      ? 0
+      : Math.max(1, Math.ceil(remainingPages / remainingPlannedDays));
+  const startPage = pagesRead >= TOTAL ? TOTAL : pagesRead + 1;
+  const endPage = Math.min(TOTAL, startPage + pagesPerDay - 1);
+  const progress = Math.min(100, Math.round((pagesRead / TOTAL) * 100));
+  // Whether we're currently behind the original even pace (i.e. redistribution is
+  // actively bumping today's target above the plan's original daily amount).
+  const isBehindSchedule = pagesPerDay > basePace;
   return {
     pagesPerDay,
     completedDays,
@@ -140,6 +169,8 @@ function metrics(p: KhatmaState) {
     startPage,
     endPage,
     progress,
+    remainingPlannedDays,
+    isBehindSchedule,
   };
 }
 function Hero({
@@ -191,7 +222,9 @@ export default function App() {
       useState<NotificationSettings>(() =>
         load("notification-settings", DEFAULT_NOTIFICATION_SETTINGS),
       ),
-    [notificationStatus, setNotificationStatus] = useState("");
+    [notificationStatus, setNotificationStatus] = useState(""),
+    [adhkarCategory, setAdhkarCategory] = useState<AdhkarCategory | 'all'>('all'),
+    [adhkarQuery, setAdhkarQuery] = useState('');
   const en = lang === "en";
   const tr = (ar: string, english: string) => (en ? english : ar);
   useEffect(() => {
@@ -308,6 +341,7 @@ export default function App() {
           : next[1],
         city: en ? city.en : city.ar,
         target: next[2].getTime(),
+        hijri: formatHijri(new Date(clock), lang),
       }).catch(() => undefined);
   }, [next[0], next[2].getTime(), city.id, lang]);
   useEffect(() => {
@@ -381,15 +415,17 @@ export default function App() {
       name: tr("اختبار الإشعارات", "Notification test"),
       importance: 5,
       vibration: true,
+      sound: 'android.resource://com.afaq.iman/raw/adhan_notification',
     } as any);
     await LocalNotifications.schedule({
       notifications: [
         {
           id: 909090,
           title: tr("اختبار آفاق الإيمان", "Afaq Al-Iman test"),
-          body: tr("الإشعارات تعمل بنجاح", "Notifications are working"),
+          body: tr("الإشعارات تعمل بنجاح ✓", "Notifications are working ✓"),
           schedule: { at: new Date(Date.now() + 5000), allowWhileIdle: true },
           channelId: "afaq-test",
+          smallIcon: "ic_stat_afaq",
         },
       ],
     });
@@ -435,6 +471,7 @@ export default function App() {
     const old = await LocalNotifications.getPending();
     if (old.notifications.length)
       await LocalNotifications.cancel({ notifications: old.notifications });
+    const CUSTOM_SOUND = 'android.resource://com.afaq.iman/raw/adhan_notification';
     const prayerChannel = `prayer-${notificationSettings.sound ? "sound" : "silent"}-${notificationSettings.vibration ? "vibrate" : "quiet"}`;
     const reminderChannel = `reminders-${notificationSettings.sound ? "sound" : "silent"}-${notificationSettings.vibration ? "vibrate" : "quiet"}`;
     await LocalNotifications.createChannel({
@@ -442,14 +479,14 @@ export default function App() {
       name: tr("مواقيت الصلاة", "Prayer times"),
       importance: 5,
       vibration: notificationSettings.vibration,
-      sound: notificationSettings.sound ? undefined : null,
+      sound: notificationSettings.sound ? CUSTOM_SOUND : null,
     } as any);
     await LocalNotifications.createChannel({
       id: reminderChannel,
       name: tr("التذكيرات", "Reminders"),
       importance: 4,
       vibration: notificationSettings.vibration,
-      sound: notificationSettings.sound ? undefined : null,
+      sound: notificationSettings.sound ? CUSTOM_SOUND : null,
     } as any);
     const now = new Date(),
       list: any[] = [];
@@ -479,12 +516,25 @@ export default function App() {
             title: notificationSettings.prePrayerMinutes
               ? tr(
                   `تبقى ${notificationSettings.prePrayerMinutes} دقيقة لصلاة ${x[0]}`,
-                  `${notificationSettings.prePrayerMinutes} minutes until prayer`,
+                  `${notificationSettings.prePrayerMinutes} minutes until ${({
+                  "الفجر": en ? "Fajr" : "الفجر",
+                  "الظهر": en ? "Dhuhr" : "الظهر",
+                  "العصر": en ? "Asr" : "العصر",
+                  "المغرب": en ? "Maghrib" : "المغرب",
+                  "العشاء": en ? "Isha" : "العشاء",
+                } as Record<string, string>)[x[0]] || x[0]}`,
                 )
-              : tr(`حان وقت صلاة ${x[0]}`, `It is time for prayer`),
+              : tr(`حان وقت صلاة ${x[0]}`, `It is time for ${({
+                  "الفجر": "Fajr",
+                  "الظهر": "Dhuhr",
+                  "العصر": "Asr",
+                  "المغرب": "Maghrib",
+                  "العشاء": "Isha",
+                } as Record<string, string>)[x[0]] || x[0]}`),
             body: en ? city.en : city.ar,
             schedule: { at: prayerAt, allowWhileIdle: true },
             channelId: prayerChannel,
+            smallIcon: "ic_stat_afaq",
           });
       });
       const a = new Date(d);
@@ -492,10 +542,11 @@ export default function App() {
       if (notificationSettings.morningAdhkar && a > now)
         list.push({
           id: 2000 + day,
-          title: "أذكار الصباح",
-          body: "ابدأ يومك بذكر الله",
-          schedule: { at: a },
+          title: tr("أذكار الصباح", "Morning Adhkar"),
+          body: tr("ابدأ يومك بذكر الله", "Start your day with the remembrance of Allah"),
+          schedule: { at: a, allowWhileIdle: true },
           channelId: reminderChannel,
+          smallIcon: "ic_stat_afaq",
         });
       const evening = new Date(d);
       evening.setHours(18, 0, 0, 0);
@@ -506,16 +557,18 @@ export default function App() {
           body: tr("اختم يومك بذكر الله", "End your day with remembrance"),
           schedule: { at: evening, allowWhileIdle: true },
           channelId: reminderChannel,
+          smallIcon: "ic_stat_afaq",
         });
       const w = new Date(d);
       w.setHours(20, 0, 0, 0);
       if (notificationSettings.dailyWird && w > now)
         list.push({
           id: 1000 + day,
-          title: "وردك اليومي",
-          body: "خصص دقائق لورد القرآن",
-          schedule: { at: w },
+          title: tr("وردك اليومي", "Daily Quran Reminder"),
+          body: tr("خصص دقائق لورد القرآن", "Set aside time for your daily Quran reading"),
+          schedule: { at: w, allowWhileIdle: true },
           channelId: reminderChannel,
+          smallIcon: "ic_stat_afaq",
         });
       const h = new Date(d);
       h.setHours(12, 0, 0, 0);
@@ -523,10 +576,11 @@ export default function App() {
         const item = hadiths[(day + new Date().getDate()) % hadiths.length];
         list.push({
           id: 3000 + day,
-          title: "حديث اليوم",
-          body: `${item[0]} — ${item[2]}`,
-          schedule: { at: h },
+          title: tr("حديث اليوم", "Hadith of the Day"),
+          body: en ? `${item.en} — ${item.source}` : `${item.ar} — ${item.source}`,
+          schedule: { at: h, allowWhileIdle: true },
           channelId: reminderChannel,
+          smallIcon: "ic_stat_afaq",
         });
       }
     }
@@ -545,7 +599,7 @@ export default function App() {
     save(KHATMA_STORAGE_KEY, p);
   }
   const filtered = hadiths.filter((h) =>
-      (h[0] + h[1] + h[2]).toLowerCase().includes(query.toLowerCase()),
+      (h.ar + h.en + h.source).toLowerCase().includes(query.toLowerCase()),
     ),
     ks = metrics(khatma);
   return (
@@ -612,6 +666,12 @@ export default function App() {
                 <MapPin /> {en ? city.en : city.ar}
               </p>
             </section>
+            <section className="hijriCard glass">
+              <div className="hijriDateRow">
+                <Moon />
+                <span>{formatHijri(new Date(clock), lang)}</span>
+              </div>
+            </section>
             <section className="prayerGrid">
               {times.map((x) => (
                 <div className={x[0] === next[0] ? "active" : ""} key={x[0]}>
@@ -669,9 +729,9 @@ export default function App() {
             <section className="glass">
               <small>{tr("حديث عشوائي", "Random Hadith")}</small>
               <blockquote>
-                «{hadiths[new Date().getDate() % hadiths.length][0]}»
+                «{hadiths[new Date().getDate() % hadiths.length].ar}»
               </blockquote>
-              <em>{hadiths[new Date().getDate() % hadiths.length][2]}</em>
+              <em>{hadiths[new Date().getDate() % hadiths.length].source}</em>
               <button
                 onClick={() => {
                   setTab("more");
@@ -694,62 +754,113 @@ export default function App() {
           <>
             <Hero
               image={images.adhkar}
-              title="الأذكار"
-              sub="عدادات محفوظة على الجهاز"
+              title={en ? "Azkar" : "الأذكار"}
+              sub={
+                en
+                  ? "Counters saved on this device"
+                  : "عدادات محفوظة على الجهاز"
+              }
             />
+            <div className="adhkarFilters">
+              <button
+                className={adhkarCategory === 'all' ? 'adhkarFilterActive' : ''}
+                onClick={() => setAdhkarCategory('all')}
+              >
+                {en ? 'All' : 'الكل'}
+              </button>
+              {adhkarCategories.map(cat => (
+                <button
+                  key={cat.id}
+                  className={adhkarCategory === cat.id ? 'adhkarFilterActive' : ''}
+                  onClick={() => setAdhkarCategory(cat.id)}
+                >
+                  {en ? cat.en : cat.ar}
+                </button>
+              ))}
+            </div>
+            <label className="search">
+              <Search />
+              <input
+                value={adhkarQuery}
+                onChange={e => setAdhkarQuery(e.target.value)}
+                placeholder={en ? 'Search adhkar...' : 'ابحث في الأذكار...'}
+              />
+            </label>
             <button
               className="resetAll"
               onClick={() => {
                 setCounts({});
                 save("adhkar-counts", {});
+                setAdhkarCategory('all');
+                setAdhkarQuery('');
               }}
             >
               <RotateCcw />
-              إعادة ضبط الكل
+              {en ? "Reset all" : "إعادة ضبط الكل"}
             </button>
-            <div className="zikrList">
-              {adhkar.map(([id, text, target]) => {
-                const n = counts[id] || 0,
-                  p = (n / target) * 100;
-                return (
-                  <button
-                    className={"zikr " + (n === target ? "done" : "")}
-                    key={id}
-                    onClick={async () => {
-                      if (n >= target) return;
-                      const x = n + 1,
-                        v = { ...counts, [id]: x };
-                      setCounts(v);
-                      save("adhkar-counts", v);
-                      if (Capacitor.isNativePlatform())
-                        x === target
-                          ? await Haptics.notification({
-                              type: NotificationType.Success,
-                            })
-                          : await Haptics.impact({ style: ImpactStyle.Light });
-                    }}
-                  >
-                    <div
-                      className="ring"
-                      style={{
-                        background: `conic-gradient(var(--gold) ${p}%,var(--line) 0)`,
-                      }}
-                    >
-                      <i>{n}</i>
-                      <small>/{target}</small>
-                    </div>
-                    <p>{text}</p>
-                    <span>{n === target ? "مكتمل" : "اضغط للعد"}</span>
-                  </button>
-                );
-              })}
-            </div>
+            {(() => {
+              const filteredAdhkar = adhkar.filter(a =>
+                (adhkarCategory === 'all' || a.category === adhkarCategory) &&
+                (!adhkarQuery || a.ar.includes(adhkarQuery))
+              );
+              return (
+                <div className="zikrList">
+                  {filteredAdhkar.map((item) => {
+                    const n = counts[item.id] || 0,
+                      p = (n / item.count) * 100;
+                    return (
+                      <button
+                        className={"zikr " + (n === item.count ? "done" : "")}
+                        key={item.id}
+                        onClick={async () => {
+                          if (n >= item.count) return;
+                          const x = n + 1,
+                            v = { ...counts, [item.id]: x };
+                          setCounts(v);
+                          save("adhkar-counts", v);
+                          if (Capacitor.isNativePlatform())
+                            x === item.count
+                              ? await Haptics.notification({
+                                  type: NotificationType.Success,
+                                })
+                              : await Haptics.impact({ style: ImpactStyle.Light });
+                        }}
+                      >
+                        <div
+                          className="ring"
+                          style={{
+                            background: `conic-gradient(var(--gold) ${p}%,var(--line) 0)`,
+                          }}
+                        >
+                          <i>{n}</i>
+                          <small>/{item.count}</small>
+                        </div>
+                        <div className="zikrText">
+                          <p>{item.ar}</p>
+                          {item.source && <small className="zikrSource">{item.source}</small>}
+                        </div>
+                        <span>
+                          {n === item.count
+                            ? en
+                              ? "Complete"
+                              : "مكتمل"
+                            : en
+                              ? "Tap to count"
+                              : "اضغط للعد"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </>
         )}
         {tab === "khatma" && (
           <KhatmaPage
             plan={khatma}
             updatePlan={updateKhatma}
+            en={en}
             onRead={() => {
               setTab("quran");
               setChapter(null);
@@ -762,19 +873,19 @@ export default function App() {
             <div className="menuGrid">
               <button onClick={() => setMore("qibla")}>
                 <Compass />
-                القبلة
+                {tr("القبلة", "Qibla")}
               </button>
               <button onClick={() => setMore("hadith")}>
                 <Library />
-                الأحاديث
+                {tr("الأحاديث", "Hadith")}
               </button>
               <button onClick={() => setPicker(true)}>
                 <MapPin />
-                المدينة
+                {tr("المدينة", "City")}
               </button>
               <button onClick={() => setMore("settings")}>
                 <Settings />
-                الإعدادات
+                {tr("الإعدادات", "Settings")}
               </button>
             </div>
           </>
@@ -783,32 +894,36 @@ export default function App() {
           <>
             <Hero
               image={images.qibla}
-              title="اتجاه القبلة"
-              sub={`حسب ${city.ar}`}
+              title={tr("اتجاه القبلة", "Qibla Direction")}
+              sub={tr(`حسب ${city.ar}`, `Based on ${city.en}`)}
             />
-            <QiblaCompass city={city} />
+            <QiblaCompass city={city} en={en} />
           </>
         )}
         {tab === "more" && more === "hadith" && (
           <>
             <Hero
               image={images.hadith}
-              title="مكتبة الأحاديث"
-              sub="بحث عربي وإنجليزي في البيانات المتاحة"
+              title={tr("مكتبة الأحاديث", "Hadith Library")}
+              sub={tr(
+                "بحث عربي وإنجليزي في البيانات المتاحة",
+                "Search in Arabic or English",
+              )}
             />
             <label className="search">
               <Search />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="ابحث بكلمة أو رقم"
+                placeholder={tr("ابحث بكلمة أو رقم", "Search by word")}
               />
             </label>
             {filtered.map((h, i) => (
               <article className="glass" key={i}>
-                <p>«{h[0]}»</p>
-                <p>{h[1]}</p>
-                <small>{h[2]}</small>
+                <p>«{h.ar}»</p>
+                <p>{h.en}</p>
+                <small>{h.source}</small>
+                {h.narrator && <em>{h.narrator}</em>}
               </article>
             ))}
           </>
@@ -1000,6 +1115,7 @@ export default function App() {
       {picker && (
         <CityPicker
           city={city}
+          en={en}
           close={() => setPicker(false)}
           choose={(c) => {
             setCity(c);
@@ -1143,10 +1259,12 @@ function KhatmaPage({
   plan,
   updatePlan,
   onRead,
+  en,
 }: {
   plan: KhatmaState;
   updatePlan: (p: KhatmaState) => void;
-  onRead: (p: number) => void;
+  onRead: () => void;
+  en: boolean;
 }) {
   const {
       pagesPerDay,
@@ -1155,6 +1273,7 @@ function KhatmaPage({
       startPage,
       endPage,
       progress,
+      isBehindSchedule,
     } = metrics(plan),
     remainingPages = Math.max(0, 604 - pagesRead),
     remainingDays = Math.max(0, plan.goalDays - completedDays),
@@ -1164,18 +1283,22 @@ function KhatmaPage({
     endDate = useMemo(() => {
       const d = new Date(`${plan.startedAt}T12:00:00`);
       d.setDate(d.getDate() + plan.goalDays - 1);
-      return d.toLocaleDateString("ar-AE", {
+      return d.toLocaleDateString(en ? "en-US" : "ar-AE", {
         year: "numeric",
         month: "long",
         day: "numeric",
       });
-    }, [plan.goalDays, plan.startedAt]);
+    }, [plan.goalDays, plan.startedAt, en]);
   return (
     <>
       <Hero
         image={images.plan}
-        title="خطة الختمة"
-        sub="خطة مرنة مبنية على 604 صفحات"
+        title={en ? "Khatma Plan" : "خطة الختمة"}
+        sub={
+          en
+            ? "A flexible plan based on 604 pages"
+            : "خطة مرنة مبنية على 604 صفحات"
+        }
       />
       <section className="glass khatmaCard">
         <div
@@ -1186,22 +1309,50 @@ function KhatmaPage({
         >
           <div>
             <b>{progress}%</b>
-            <span>مكتمل</span>
+            <span>{en ? "complete" : "مكتمل"}</span>
           </div>
         </div>
         <div className="khatmaToday">
-          <small>{complete ? "تمت الختمة" : "ورد اليوم"}</small>
+          <small>
+            {complete
+              ? en
+                ? "Khatma complete"
+                : "تمت الختمة"
+              : en
+                ? "Today's wird"
+                : "ورد اليوم"}
+          </small>
           <h2>
             {complete
-              ? "بارك الله لك في ختم القرآن"
-              : `من صفحة ${startPage} إلى ${endPage}`}
+              ? en
+                ? "May Allah bless you for completing the Quran"
+                : "بارك الله لك في ختم القرآن"
+              : en
+                ? `From page ${startPage} to ${endPage}`
+                : `من صفحة ${startPage} إلى ${endPage}`}
           </h2>
-          <p>{complete ? "ابدأ خطة جديدة" : `${pagesPerDay} صفحة يوميًا`}</p>
+          <p>
+            {complete
+              ? en
+                ? "Start a new plan"
+                : "ابدأ خطة جديدة"
+              : en
+                ? `${pagesPerDay} pages daily`
+                : `${pagesPerDay} صفحة يوميًا`}
+          </p>
+          {!complete && isBehindSchedule && (
+            <p className="khatmaBehindNote">
+              {en
+                ? "You're behind pace — remaining pages have been redistributed over the remaining days."
+                : "تأخرت قليلاً عن الخطة — تمت إعادة توزيع الصفحات المتبقية على الأيام القادمة."}
+            </p>
+          )}
         </div>
       </section>
       <section className="glass">
         <label className="khatmaRange">
-          مدة الختمة: <b>{plan.goalDays} يومًا</b>
+          {en ? "Khatma duration: " : "مدة الختمة: "}
+          <b>{plan.goalDays} {en ? "days" : "يومًا"}</b>
           <input
             type="range"
             min="7"
@@ -1213,27 +1364,29 @@ function KhatmaPage({
         <div className="khatmaStats">
           <div>
             <b>{completedDays}</b>
-            <span>يوم منجز</span>
+            <span>{en ? "days done" : "يوم منجز"}</span>
           </div>
           <div>
             <b>{remainingDays}</b>
-            <span>يوم متبقٍ</span>
+            <span>{en ? "days left" : "يوم متبقٍ"}</span>
           </div>
           <div>
             <b>{remainingPages}</b>
-            <span>صفحة متبقية</span>
+            <span>{en ? "pages left" : "صفحة متبقية"}</span>
           </div>
         </div>
         <p className="khatmaDate">
-          <CalendarDays /> تاريخ الانتهاء المتوقع: <b>{endDate}</b>
+          <CalendarDays />{" "}
+          {en ? "Expected finish date: " : "تاريخ الانتهاء المتوقع: "}
+          <b>{endDate}</b>
         </p>
         {!complete && (
           <button
             className="secondary khatmaAction"
-            onClick={() => onRead(startPage)}
+            onClick={() => onRead()}
           >
             <BookOpen />
-            قراءة ورد اليوم
+            {en ? "Read today's wird" : "قراءة ورد اليوم"}
           </button>
         )}
         <button
@@ -1247,10 +1400,16 @@ function KhatmaPage({
         >
           <CheckCircle2 />
           {complete
-            ? "اكتملت الختمة"
+            ? en
+              ? "Khatma complete"
+              : "اكتملت الختمة"
             : doneToday
-              ? "تم تسجيل ورد اليوم"
-              : "تسجيل إنجاز اليوم"}
+              ? en
+                ? "Today's wird recorded"
+                : "تم تسجيل ورد اليوم"
+              : en
+                ? "Mark today complete"
+                : "تسجيل إنجاز اليوم"}
         </button>
         <button
           className="secondary khatmaAction"
@@ -1263,12 +1422,16 @@ function KhatmaPage({
           }
         >
           <Undo2 />
-          تراجع عن آخر إنجاز
+          {en ? "Undo last entry" : "تراجع عن آخر إنجاز"}
         </button>
         <button
           className="khatmaReset"
           onClick={() =>
-            window.confirm("هل تريد بدء خطة ختمة جديدة؟") &&
+            window.confirm(
+              en
+                ? "Start a new khatma plan and clear current progress?"
+                : "هل تريد بدء خطة ختمة جديدة؟",
+            ) &&
             updatePlan({
               goalDays: plan.goalDays,
               completedDates: [],
@@ -1277,7 +1440,7 @@ function KhatmaPage({
           }
         >
           <RotateCcw />
-          بدء خطة جديدة
+          {en ? "Start new plan" : "بدء خطة جديدة"}
         </button>
       </section>
     </>
@@ -1287,17 +1450,19 @@ function CityPicker({
   city,
   choose,
   close,
+  en,
 }: {
   city: City;
   choose: (c: City) => void;
   close: () => void;
+  en: boolean;
 }) {
   const [q, setQ] = useState("");
   return (
     <div className="modal">
       <section className="sheet citySheet">
         <div className="sheetHead">
-          <h2>اختيار المدينة</h2>
+          <h2>{en ? "Choose a City" : "اختيار المدينة"}</h2>
           <button onClick={close}>
             <X />
           </button>
@@ -1308,7 +1473,7 @@ function CityPicker({
             autoFocus
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="مدينة أو دولة"
+            placeholder={en ? "City or country" : "مدينة أو دولة"}
           />
         </label>
         <div className="cityList">
@@ -1322,8 +1487,8 @@ function CityPicker({
                 key={c.id}
                 onClick={() => choose(c)}
               >
-                <b>{c.ar}</b>
-                <small>{c.en}</small>
+                <b>{en ? c.en : c.ar}</b>
+                <small>{en ? c.ar : c.en}</small>
               </button>
             ))}
         </div>
@@ -1331,75 +1496,17 @@ function CityPicker({
     </div>
   );
 }
-function Reader({
-  c,
-  font,
-  setFont,
-  marks,
-  toggle,
-  back,
-}: {
-  c: Chapter;
-  font: number;
-  setFont: (n: number) => void;
-  marks: Record<string, boolean>;
-  toggle: (id: number) => void;
-  back: () => void;
-}) {
-  return (
-    <>
-      <div className="readerHead">
-        <button onClick={back}>×</button>
-        <h1>سورة {c.name}</h1>
-        <div>
-          <button
-            onClick={() => {
-              const n = Math.max(22, font - 2);
-              setFont(n);
-              save("quran-font", n);
-            }}
-          >
-            <Minus />
-          </button>
-          <button
-            onClick={() => {
-              const n = Math.min(46, font + 2);
-              setFont(n);
-              save("quran-font", n);
-            }}
-          >
-            <Plus />
-          </button>
-        </div>
-      </div>
-      <section className="mushafPage" style={{ fontSize: font }}>
-        {c.verses.map((v) => {
-          const k = `${c.id}:${v.id}`,
-            marked = marks[k];
-          return (
-            <span className="verse" key={v.id}>
-              {v.text} <b>﴿{v.id}﴾</b>
-              <button
-                className={marked ? "marked" : ""}
-                onClick={() => toggle(v.id)}
-              >
-                {marked ? <BookmarkCheck /> : <Bookmark />}
-              </button>{" "}
-            </span>
-          );
-        })}
-      </section>
-    </>
-  );
-}
-function QiblaCompass({ city }: { city: City }) {
+function QiblaCompass({ city, en }: { city: City; en: boolean }) {
   const bearing = Math.round(Qibla(new Coordinates(city.lat, city.lng))),
     [heading, setHeading] = useState<number | null>(null),
     buffer = useRef<number[]>([]),
-    last = useRef(0);
+    last = useRef(0),
+    [calibrating, setCalibrating] = useState(false);
   useEffect(() => {
+    setCalibrating(true);
+    const timer = setTimeout(() => setCalibrating(false), 3000);
     const handler = (e: any) => {
-      if (performance.now() - last.current < 100) return;
+      if (performance.now() - last.current < 80) return;
       last.current = performance.now();
       let v =
         typeof e.webkitCompassHeading === "number"
@@ -1410,46 +1517,74 @@ function QiblaCompass({ city }: { city: City }) {
       if (v === null) return;
       v = (v + (screen.orientation?.angle || 0) + 360) % 360;
       buffer.current.push(v);
-      if (buffer.current.length > 20) buffer.current.shift();
+      if (buffer.current.length > 40) buffer.current.shift();
       const s = buffer.current.reduce(
-          (a, x) => a + Math.sin((x * Math.PI) / 180),
-          0,
-        ),
+          (a, x) => a + Math.sin((x * Math.PI) / 180), 0),
         c = buffer.current.reduce(
-          (a, x) => a + Math.cos((x * Math.PI) / 180),
-          0,
-        ),
+          (a, x) => a + Math.cos((x * Math.PI) / 180), 0),
         avg = ((Math.atan2(s, c) * 180) / Math.PI + 360) % 360;
-      setHeading((p) =>
-        p === null || Math.abs(((avg - p + 540) % 360) - 180) > 2.5 ? avg : p,
-      );
+      setHeading((p) => {
+        if (p === null) return avg;
+        return Math.abs(((avg - p + 540) % 360) - 180) > 1 ? avg : p;
+      });
     };
     window.addEventListener("deviceorientationabsolute", handler, true);
     window.addEventListener("deviceorientation", handler, true);
     return () => {
+      clearTimeout(timer);
       window.removeEventListener("deviceorientationabsolute", handler, true);
       window.removeEventListener("deviceorientation", handler, true);
     };
   }, []);
-  const delta =
-    heading === null ? bearing : ((bearing - heading + 540) % 360) - 180;
+  const delta = heading === null ? bearing : ((bearing - heading + 540) % 360) - 180;
+  const onTarget = heading !== null && Math.abs(Math.round(delta)) <= 3;
   return (
     <section className="compassCard">
       <div className="compassDial">
-        <b>N</b>
-        <div
-          className="redArrow"
-          style={{ transform: `translate(-50%,-100%) rotate(${delta}deg)` }}
-        />
+        {Array.from({ length: 36 }, (_, i) => {
+          const angle = i * 10;
+          const isCardinal = angle % 90 === 0;
+          const isMajor = angle % 30 === 0;
+          return (
+            <div
+              key={angle}
+              className={`compassTick ${isCardinal ? "cardinalTick" : isMajor ? "majorTick" : ""}`}
+              style={{ transform: `rotate(${angle}deg)` }}
+            />
+          );
+        })}
+        <b className="compassN">N</b>
+        <b className="cardinalE">E</b>
+        <b className="cardinalS">S</b>
+        <b className="cardinalW">W</b>
+        <svg className="qiblaArc" viewBox="0 0 200 200">
+          <circle cx="100" cy="100" r="92" fill="none"
+            stroke={onTarget ? "var(--gold)" : "rgba(229,197,102,0.25)"}
+            strokeWidth="3" strokeDasharray={onTarget ? "none" : "4 4"}
+            strokeDashoffset={`${-bearing * 2.55}`} strokeLinecap="round" />
+        </svg>
+        <div className={`redArrow ${onTarget ? "onTarget" : ""}`}
+          style={{ transform: `translate(-50%,-100%) rotate(${delta}deg)` }} />
         <div className="kaabaMark">
-          ◆<small>الكعبة</small>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill={onTarget ? "var(--gold)" : "currentColor"}>
+            <path d="M12 2L8 8h8L12 2zM8 8v10l4 4 4-4V8H8z" />
+          </svg>
+          <small>{en ? "Kaaba" : "الكعبة"}</small>
         </div>
       </div>
-      <h2>{bearing}° من الشمال</h2>
-      <p>
-        {heading === null
-          ? "المستشعر غير متاح، استخدم الدرجة الثابتة"
-          : `تبقى ${Math.abs(Math.round(delta))}° للوصول إلى القبلة`}
+      <h2 className={onTarget ? "qiblaLocked" : ""}>
+        {bearing}° {en ? "from North" : "من الشمال"}
+        {onTarget && <span className="qiblaCheck"> ✓</span>}
+      </h2>
+      <p className="qiblaStatus">
+        {calibrating
+          ? en ? "Calibrating... move your device in a figure-8" : "جارٍ المعايرة... حرّك جهاز على شكل ثمانية"
+          : heading === null
+            ? en ? "Sensor unavailable — use the fixed bearing" : "المستشعر غير متاح — استخدم الدرجة الثابتة"
+            : onTarget
+              ? en ? "You are now facing the Qibla" : "أنت الآن متجه نحو القبلة"
+              : en ? `${Math.abs(Math.round(delta))}° ${delta > 0 ? "left" : "right"}`
+                     : `تبقى ${Math.abs(Math.round(delta))}° ${delta > 0 ? "يمين" : "يسار"}`}
       </p>
     </section>
   );

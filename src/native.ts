@@ -6,6 +6,7 @@ export interface PrayerWidgetPlugin {
     city: string;
     target: number;
     schedule?: WidgetPrayerItem[];
+    hijri?: string;
   }): Promise<void>;
 }
 export const PrayerWidget = registerPlugin<PrayerWidgetPlugin>("PrayerWidget");

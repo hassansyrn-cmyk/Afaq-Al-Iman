@@ -9,14 +9,22 @@ import {
   Search,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { surahs } from "./surahs";
+import { sanitizeQuranText } from "./quranText";
 
-type Verse = { id: number; text: string };
+type Verse = { id: number; text: string; translation?: string; transliteration?: string };
 type Chapter = {
   id: number;
   name: string;
   total_verses: number;
   verses: Verse[];
+};
+type SurahMeta = {
+  id: number;
+  name: string;
+  transliteration: string;
+  translation: string;
+  type: "meccan" | "medinan";
+  total_verses: number;
 };
 type LastRead = { sura: number; ayah: number; name: string };
 type Props = {
@@ -40,6 +48,7 @@ export default function QuranExperience({
   onReaderStateChange,
 }: Props) {
   const [chapter, setChapter] = useState<Chapter | null>(null);
+  const [surahs, setSurahs] = useState<SurahMeta[]>([]);
   const [font, setFont] = useState(() => load("quran-font", 30));
   const [marks, setMarks] = useState<Record<string, boolean>>(() =>
     load("bookmarks", {}),
@@ -48,6 +57,7 @@ export default function QuranExperience({
     load("quran-last-read", null),
   );
   const [query, setQuery] = useState("");
+  const [showTranslation, setShowTranslation] = useState(() => load("quran-translation", false));
   const pinch = useRef<{ distance: number; font: number } | null>(null);
   const en = lang === "en";
 
@@ -55,20 +65,44 @@ export default function QuranExperience({
     onReaderStateChange?.(!!chapter);
   }, [chapter, onReaderStateChange]);
   useEffect(() => {
+    fetch("./quran/surahs-meta.json")
+      .then((r) => r.json())
+      .then((data: SurahMeta[]) => setSurahs(data))
+      .catch(() => setSurahs([]));
+  }, []);
+  useEffect(() => {
     const back = () => setChapter((current) => (current ? null : current));
     window.addEventListener("afaq-quran-back", back);
     return () => window.removeEventListener("afaq-quran-back", back);
   }, []);
 
   async function openSura(id: number, ayah?: number) {
-    const response = await fetch(`./quran/${id}.json`);
-    if (!response.ok)
+    const [arRes, enRes] = await Promise.all([
+      fetch(`./quran/${id}.json`),
+      fetch(`./quran/en/${id}.json`).catch(() => null),
+    ]);
+    if (!arRes.ok)
       throw new Error(
         en ? `Could not load chapter ${id}` : `تعذر تحميل السورة رقم ${id}`,
       );
-    const data = (await response.json()) as Chapter;
-    const info = surahs[id - 1];
-    setChapter({ ...data, id, name: info.name, total_verses: info.verses });
+    const arData = (await arRes.json()) as Chapter;
+    let enData: Chapter | null = null;
+    if (enRes && enRes.ok) {
+      try { enData = (await enRes.json()) as Chapter; } catch {}
+    }
+    const info = surahs.find((s) => s.id === id);
+    const merged: Chapter = {
+      ...arData,
+      id,
+      name: info?.name ?? arData.name,
+      total_verses: info?.total_verses ?? arData.total_verses,
+      verses: arData.verses.map((v, i) => ({
+        ...v,
+        translation: enData?.verses?.[i]?.translation,
+        transliteration: enData?.verses?.[i]?.transliteration,
+      })),
+    };
+    setChapter(merged);
     window.setTimeout(() => {
       if (ayah)
         document
@@ -102,8 +136,9 @@ export default function QuranExperience({
   }
 
   if (chapter) {
-    const next = chapter.id < 114 ? surahs[chapter.id] : null;
-    const previous = chapter.id > 1 ? surahs[chapter.id - 2] : null;
+    const next = chapter.id < 114 ? surahs.find((s) => s.id === chapter.id + 1) : null;
+    const previous = chapter.id > 1 ? surahs.find((s) => s.id === chapter.id - 1) : null;
+    const current = surahs.find((s) => s.id === chapter.id);
     return (
       <>
         <div className="readerHead">
@@ -115,7 +150,7 @@ export default function QuranExperience({
           </button>
           <div>
             <small>{en ? "Surah" : "سورة"}</small>
-            <h1>{chapter.name}</h1>
+            <h1>{en && current ? current.transliteration : chapter.name}</h1>
             <span>
               {chapter.total_verses} {en ? "verses" : "آية"}
             </span>
@@ -129,6 +164,11 @@ export default function QuranExperience({
               <Plus />
             </button>
           </div>
+        </div>
+        <div className="readerControls">
+          <button className={showTranslation ? "on" : ""} onClick={() => { const v = !showTranslation; setShowTranslation(v); save("quran-translation", v); }}>
+            {en ? "Translation" : "الترجمة"}
+          </button>
         </div>
         <p className="pinchHint">
           {en
@@ -164,7 +204,10 @@ export default function QuranExperience({
                 id={`ayah-${chapter.id}-${verse.id}`}
                 key={verse.id}
               >
-                {verse.text} <b>﴿{verse.id}﴾</b>
+                {sanitizeQuranText(verse.text)} <b>﴿{verse.id}﴾</b>
+                {showTranslation && verse.translation && (
+                  <span className="verseTranslation">{verse.translation}</span>
+                )}
                 <button
                   className={marked ? "marked" : ""}
                   onClick={() => toggleBookmark(verse)}
@@ -181,7 +224,7 @@ export default function QuranExperience({
               <ChevronRight />
               <span>
                 <small>{en ? "Previous surah" : "السورة السابقة"}</small>
-                <b>{previous.name}</b>
+                <b>{en ? previous.transliteration : previous.name}</b>
               </span>
             </button>
           ) : (
@@ -194,7 +237,7 @@ export default function QuranExperience({
             >
               <span>
                 <small>{en ? "Next surah" : "السورة التالية"}</small>
-                <b>{next.name}</b>
+                <b>{en ? next.transliteration : next.name}</b>
               </span>
               <ChevronLeft />
             </button>
@@ -210,7 +253,9 @@ export default function QuranExperience({
   }
 
   const filtered = surahs.filter((s) =>
-    `${s.id} ${s.name}`.includes(query.trim()),
+    `${s.id} ${s.name} ${s.transliteration} ${s.translation}`
+      .toLowerCase()
+      .includes(query.trim().toLowerCase()),
   );
   return (
     <>
@@ -259,14 +304,24 @@ export default function QuranExperience({
       </label>
       <div className="suras">
         {filtered.map((s) => (
-          <button key={s.id} onClick={() => void openSura(s.id)}>
+          <button key={s.id} className="suraRow" onClick={() => void openSura(s.id)}>
             <b>{s.id}</b>
-            <span>
-              <strong>
-                {en ? "Surah" : "سورة"} {s.name}
-              </strong>
+            <span className="suraInfo">
+              <strong>{s.name}</strong>
+              <em>
+                {s.transliteration} — {s.translation}
+              </em>
               <small>
-                {s.verses} {en ? "verses" : "آية"}
+                <i className={`makkiBadge ${s.type}`}>
+                  {s.type === "meccan"
+                    ? en
+                      ? "Meccan"
+                      : "مكية"
+                    : en
+                      ? "Medinan"
+                      : "مدنية"}
+                </i>
+                {s.total_verses} {en ? "verses" : "آية"}
               </small>
             </span>
             <ChevronLeft />
