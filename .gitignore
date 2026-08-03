@@ -25,3 +25,16 @@ key.properties
 .DS_Store
 .idea/
 .vscode/
+
+# Android signing secrets
+*.jks
+*.keystore
+key.properties
+android/key.properties
+android/app/release/
+
+# Android signing secrets
+android/key.properties
+*.jks
+*.keystore
+key.properties
