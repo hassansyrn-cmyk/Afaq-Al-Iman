@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Web build
+dist/
+build/
+
+# Android generated files
+.gradle/
+android/.gradle/
+android/build/
+android/app/build/
+local.properties
+
+# Environment and signing
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+key.properties
+
+# Logs and editor files
+*.log
+.DS_Store
+.idea/
+.vscode/
