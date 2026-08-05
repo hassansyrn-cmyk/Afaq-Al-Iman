@@ -1,4 +1,3 @@
-import QuranExperience from "./QuranExperience";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { App as NativeApp } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
@@ -36,20 +35,19 @@ import {
   Droplets,
   BellRing,
   Sparkles,
+  CircleDot,
+  Star,
+  Grid3x3,
+  Plus,
+  Target,
 } from "lucide-react";
 import { cities, type City } from "./cities";
 import { adhkar, adhkarCategories, type AdhkarItem, type AdhkarCategory } from "./adhkar";
 import { hadiths, type Hadith } from "./hadith";
 import { formatHijri } from "./hijri";
 import { PrayerWidget } from "./native";
-type Tab = "home" | "quran" | "adhkar" | "khatma" | "more";
+type Tab = "home" | "tasbeeh" | "adhkar" | "khatma" | "more";
 type More = "menu" | "qibla" | "hadith" | "settings";
-type Chapter = {
-  id: number;
-  name: string;
-  total_verses: number;
-  verses: { id: number; text: string }[];
-};
 type NotificationSettings = {
   prayers: boolean;
   prePrayerMinutes: number;
@@ -77,8 +75,22 @@ type KhatmaState = {
   completedDates: string[];
   startedAt: string;
 };
-const TOTAL_QURAN_PAGES = 604,
-  KHATMA_STORAGE_KEY = "afaq-khatma-v2";
+type TasbeehState = {
+  count: number;
+  goal: number;
+  current: string | null;
+  favorites: string[];
+  haptic: boolean;
+};
+const KHATMA_STORAGE_KEY = "afaq-khatma-v2",
+  TASBEEH_STORAGE_KEY = "afaq-tasbeeh-v1";
+const DEFAULT_TASBEEH_STATE: TasbeehState = {
+  count: 0,
+  goal: 100,
+  current: null,
+  favorites: [],
+  haptic: true,
+};
 const load = <T,>(k: string, f: T): T => {
   try {
     return JSON.parse(localStorage.getItem(k) || "") as T;
@@ -95,7 +107,6 @@ const images = {
   asr: "./images/home/prayer-asr.webp",
   maghrib: "./images/home/prayer-maghrib.webp",
   isha: "./images/home/prayer-isha.webp",
-  quran: "./images/quran/quran-hero.webp",
   adhkar: "./images/adhkar/adhkar-hero.webp",
   qibla: "./images/qibla/qibla-hero.webp",
   hadith: "./images/hadith/hadith-hero.webp",
@@ -128,6 +139,16 @@ function loadKhatma(): KhatmaState {
     return p?.goalDays && Array.isArray(p.completedDates) ? p : f;
   } catch {
     return f;
+  }
+}
+function loadTasbeeh(): TasbeehState {
+  try {
+    const p = JSON.parse(localStorage.getItem(TASBEEH_STORAGE_KEY) || "null");
+    return p && typeof p.count === "number"
+      ? { ...DEFAULT_TASBEEH_STATE, ...p }
+      : DEFAULT_TASBEEH_STATE;
+  } catch {
+    return DEFAULT_TASBEEH_STATE;
   }
 }
 function metrics(p: KhatmaState) {
@@ -202,11 +223,6 @@ export default function App() {
     [dark, setDark] = useState(() => load("dark", false)),
     [city, setCity] = useState<City>(() => load("city", cities[0])),
     [picker, setPicker] = useState(false),
-    [chapter, setChapter] = useState<Chapter | null>(null),
-    [font, setFont] = useState(() => load("quran-font", 30)),
-    [marks, setMarks] = useState<Record<string, boolean>>(() =>
-      load("bookmarks", {}),
-    ),
     [counts, setCounts] = useState<Record<string, number>>(() =>
       load("adhkar-counts", {}),
     ),
@@ -216,7 +232,11 @@ export default function App() {
     [remaining, setRemaining] = useState(""),
     [khatma, setKhatma] = useState<KhatmaState>(loadKhatma),
     [clock, setClock] = useState(() => Date.now()),
-    [quranReaderOpen, setQuranReaderOpen] = useState(false),
+    [tasbeeh, setTasbeehState] = useState<TasbeehState>(loadTasbeeh),
+    [tasbeehView, setTasbeehView] = useState<
+      "counter" | "sections" | "favorites" | "search" | "settings"
+    >("counter"),
+    [tasbeehQuery, setTasbeehQuery] = useState(""),
     [lang, setLang] = useState<"ar" | "en">(() => load("language", "ar")),
     [notificationSettings, setNotificationSettings] =
       useState<NotificationSettings>(() =>
@@ -351,9 +371,8 @@ export default function App() {
       if (prompt) setPrompt(false);
       else if (modal) setModal(null);
       else if (picker) setPicker(false);
-      else if (tab === "quran" && quranReaderOpen)
-        window.dispatchEvent(new Event("afaq-quran-back"));
-      else if (chapter) setChapter(null);
+      else if (tab === "tasbeeh" && tasbeehView !== "counter")
+        setTasbeehView("counter");
       else if (more !== "menu") setMore("menu");
       else if (tab !== "home") {
         setTab("home");
@@ -361,7 +380,7 @@ export default function App() {
       } else void NativeApp.exitApp();
     }).then((h) => (remove = () => void h.remove()));
     return () => remove?.();
-  }, [prompt, modal, picker, chapter, tab, more, quranReaderOpen]);
+  }, [prompt, modal, picker, tab, more, tasbeehView]);
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
     let remove: (() => void) | undefined;
@@ -566,17 +585,17 @@ export default function App() {
     }
     await LocalNotifications.schedule({ notifications: list });
   }
-  async function openSura(id: number) {
-    setChapter(await fetch(`./quran/${id}.json`).then((r) => r.json()));
-  }
   function go(t: Tab) {
     setTab(t);
     setMore("menu");
-    setChapter(null);
   }
   function updateKhatma(p: KhatmaState) {
     setKhatma(p);
     save(KHATMA_STORAGE_KEY, p);
+  }
+  function updateTasbeeh(p: TasbeehState) {
+    setTasbeehState(p);
+    save(TASBEEH_STORAGE_KEY, p);
   }
   const filtered = hadiths.filter((h) =>
       (h.ar + h.en + h.source).toLowerCase().includes(query.toLowerCase()),
@@ -674,9 +693,9 @@ export default function App() {
               ))}
             </section>
             <section className="quick">
-              <button onClick={() => go("quran")}>
-                <BookOpen />
-                {tr("القرآن", "Quran")}
+              <button onClick={() => go("tasbeeh")}>
+                <CircleDot />
+                {tr("المسبحة", "Tasbeeh")}
               </button>
               <button onClick={() => go("adhkar")}>
                 <Heart />
@@ -723,10 +742,15 @@ export default function App() {
             </section>
           </>
         )}
-        {tab === "quran" && (
-          <QuranExperience
-            lang={lang}
-            onReaderStateChange={setQuranReaderOpen}
+        {tab === "tasbeeh" && (
+          <TasbeehPage
+            en={en}
+            state={tasbeeh}
+            update={updateTasbeeh}
+            view={tasbeehView}
+            setView={setTasbeehView}
+            query={tasbeehQuery}
+            setQuery={setTasbeehQuery}
           />
         )}
 
@@ -837,15 +861,7 @@ export default function App() {
           </>
         )}
         {tab === "khatma" && (
-          <KhatmaPage
-            plan={khatma}
-            updatePlan={updateKhatma}
-            en={en}
-            onRead={() => {
-              setTab("quran");
-              setChapter(null);
-            }}
-          />
+          <KhatmaPage plan={khatma} updatePlan={updateKhatma} en={en} />
         )}
         {tab === "more" && more === "menu" && (
           <>
@@ -1076,7 +1092,7 @@ export default function App() {
         {(
           [
             ["home", Home, tr("الرئيسية", "Home")],
-            ["quran", BookOpen, tr("القرآن", "Quran")],
+            ["tasbeeh", CircleDot, tr("المسبحة", "Tasbeeh")],
             ["adhkar", Heart, tr("الأذكار", "Adhkar")],
             ["khatma", CalendarDays, tr("الختمة", "Khatma")],
             ["more", Settings, tr("المزيد", "More")],
@@ -1122,16 +1138,53 @@ export default function App() {
             </button>
             {modal === "privacy" ? (
               <>
-                <h2>سياسة الخصوصية</h2>
+                <h2>{tr("سياسة الخصوصية", "Privacy policy")}</h2>
                 <p>
-                  تُحفظ المدينة والعلامات والختمة والإعدادات محليًا، ولا يبيع
-                  التطبيق البيانات الشخصية.
+                  {tr(
+                    "يعمل التطبيق بالكامل من جهازك، بدون حساب أو تسجيل دخول.",
+                    "The app runs entirely on your device, with no account or sign-in.",
+                  )}
+                </p>
+                <p>
+                  {tr(
+                    "البيانات المحفوظة على جهازك فقط: المدينة المختارة، تقدّم خطة الختمة، عدّاد المسبحة والأذكار المفضّلة، وإعدادات المظهر واللغة والإشعارات. لا تُرسل هذه البيانات إلى أي خادم، ولا تُشارك أو تُباع لأي طرف ثالث.",
+                    "Data stored only on your device: your selected city, Khatma plan progress, your Tasbeeh counter and favorite Adhkar, and your theme, language, and notification settings. None of this is sent to any server, shared, or sold to third parties.",
+                  )}
+                </p>
+                <p>
+                  {tr(
+                    "إذن الإشعارات يُستخدم لتذكيرك بأوقات الصلاة والأذكار، ومستشعر الاتجاه يُستخدم فقط لحساب اتجاه القبلة دون أي تسجيل له. لا يحتاج التطبيق إلى اتصال بالإنترنت للعمل.",
+                    "The notification permission is used to remind you of prayer times and Adhkar, and the orientation sensor is used only to calculate the Qibla direction, without recording it. The app doesn't need an internet connection to work.",
+                  )}
+                </p>
+                <p>
+                  {tr(
+                    "لا يحتوي التطبيق على إعلانات أو أدوات تتبع. حذف التطبيق يمسح جميع بياناته المحفوظة نهائيًا.",
+                    "The app has no ads or tracking tools. Uninstalling the app permanently erases all of its stored data.",
+                  )}
                 </p>
               </>
             ) : (
               <>
-                <h2>حول البرنامج</h2>
-                <p>آفاق الإيمان 1.5.0. المواقيت حسابية وقد تختلف بدقائق.</p>
+                <h2>{tr("حول البرنامج", "About")}</h2>
+                <p>
+                  {tr(
+                    "آفاق الإيمان 1.5.0 — رفيقك اليومي في الصلاة والذكر: مواقيت الصلاة، اتجاه القبلة، خطة الختمة، الأذكار، المسبحة الإلكترونية، ومكتبة أحاديث صحيحة.",
+                    "Afaq Al-Iman 1.5.0 — your daily companion for prayer and remembrance: prayer times, Qibla direction, a Khatma plan, Adhkar, an electronic Tasbeeh, and a library of authenticated (sahih) hadith.",
+                  )}
+                </p>
+                <p>
+                  {tr(
+                    "المواقيت والاتجاهات محسوبة فلكيًا وقد تختلف ببضع دقائق عن مصادر أخرى، فيُستحسن التحقق منها عند الحاجة لدقة تامة.",
+                    "Prayer times and directions are calculated astronomically and may differ by a few minutes from other sources — worth double-checking when full precision matters.",
+                  )}
+                </p>
+                <p>
+                  {tr(
+                    "كل حديث في المكتبة مأخوذ من مصادر معتمدة (صحيح البخاري وصحيح مسلم وغيرها من الكتب الموثوقة)، وتم استبعاد أي حديث ضعيف أو مختلف في صحته. لا إعلانات ولا أدوات تتبع في التطبيق.",
+                    "Every hadith in the library is drawn from authenticated sources (Sahih al-Bukhari, Sahih Muslim, and other trusted collections), with any weak or disputed narration excluded. No ads or tracking tools are included in the app.",
+                  )}
+                </p>
               </>
             )}
           </section>
@@ -1264,12 +1317,10 @@ function Benefit({
 function KhatmaPage({
   plan,
   updatePlan,
-  onRead,
   en,
 }: {
   plan: KhatmaState;
   updatePlan: (p: KhatmaState) => void;
-  onRead: () => void;
   en: boolean;
 }) {
   const {
@@ -1386,15 +1437,6 @@ function KhatmaPage({
           {en ? "Expected finish date: " : "تاريخ الانتهاء المتوقع: "}
           <b>{endDate}</b>
         </p>
-        {!complete && (
-          <button
-            className="secondary khatmaAction"
-            onClick={() => onRead()}
-          >
-            <BookOpen />
-            {en ? "Read today's wird" : "قراءة ورد اليوم"}
-          </button>
-        )}
         <button
           className="primary khatmaAction"
           disabled={doneToday || complete}
@@ -1449,6 +1491,213 @@ function KhatmaPage({
           {en ? "Start new plan" : "بدء خطة جديدة"}
         </button>
       </section>
+    </>
+  );
+}
+function TasbeehPage({
+  en,
+  state,
+  update,
+  view,
+  setView,
+  query,
+  setQuery,
+}: {
+  en: boolean;
+  state: TasbeehState;
+  update: (s: TasbeehState) => void;
+  view: "counter" | "sections" | "favorites" | "search" | "settings";
+  setView: (
+    v: "counter" | "sections" | "favorites" | "search" | "settings",
+  ) => void;
+  query: string;
+  setQuery: (q: string) => void;
+}) {
+  const phrases = useMemo(
+    () => adhkar.filter((a) => a.category === "general"),
+    [],
+  );
+  const currentPhrase = phrases.find((p) => p.id === state.current);
+  const favoritePhrases = phrases.filter((p) =>
+    state.favorites.includes(p.id),
+  );
+  const filteredPhrases = phrases.filter(
+    (p) => !query || p.ar.includes(query),
+  );
+  async function tap() {
+    const count = state.count + 1;
+    update({ ...state, count });
+    if (Capacitor.isNativePlatform() && state.haptic) {
+      if (state.goal > 0 && count % state.goal === 0)
+        await Haptics.notification({ type: NotificationType.Success });
+      else await Haptics.impact({ style: ImpactStyle.Light });
+    }
+  }
+  function selectPhrase(id: string) {
+    update({ ...state, current: id });
+    setView("counter");
+  }
+  function toggleFavorite(id: string) {
+    const favorites = state.favorites.includes(id)
+      ? state.favorites.filter((f) => f !== id)
+      : [...state.favorites, id];
+    update({ ...state, favorites });
+  }
+  function phraseRow(p: AdhkarItem) {
+    return (
+      <button
+        key={p.id}
+        className={"tasbeehItem" + (state.current === p.id ? " active" : "")}
+        onClick={() => selectPhrase(p.id)}
+      >
+        <div className="tasbeehItemText">
+          <p>{p.ar}</p>
+          <small>
+            {p.count} {en ? "times" : "مرة"}
+          </small>
+        </div>
+        <span
+          className="tasbeehStar"
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleFavorite(p.id);
+          }}
+        >
+          <Star
+            className={state.favorites.includes(p.id) ? "starred" : ""}
+          />
+        </span>
+      </button>
+    );
+  }
+  return (
+    <>
+      <div className="tasbeehHeader">
+        <h1>{en ? "Electronic Tasbeeh" : "المسبحة الإلكترونية"}</h1>
+        <p>
+          {en ? "Today's goal: " : "هدف اليوم: "}
+          {state.goal}
+        </p>
+      </div>
+      <nav className="tasbeehNav">
+        {(
+          [
+            ["sections", Grid3x3, en ? "Sections" : "الأقسام"],
+            ["search", Search, en ? "Search" : "البحث"],
+            ["counter", CircleDot, en ? "Counter" : "العداد"],
+            ["favorites", Star, en ? "Favorites" : "المفضلة"],
+            ["settings", Settings, en ? "Settings" : "الإعدادات"],
+          ] as const
+        ).map(([k, I, l]) => (
+          <button
+            key={k}
+            className={view === k ? "on" : ""}
+            onClick={() => setView(k)}
+          >
+            <I />
+            <span>{l}</span>
+          </button>
+        ))}
+      </nav>
+      {view === "counter" && (
+        <>
+          <div className="tasbeehPhrase">
+            {currentPhrase ? (
+              <>
+                <span>{currentPhrase.ar}</span>
+                <button onClick={() => update({ ...state, current: null })}>
+                  <X />
+                </button>
+              </>
+            ) : (
+              <span className="tasbeehFree">
+                {en ? "Free tasbeeh" : "تسبيح حر"}
+              </span>
+            )}
+          </div>
+          <button className="tasbeehCircle" onClick={tap}>
+            <b>{state.count}</b>
+            <small>{en ? "Tap to count" : "اضغط للتسبيح"}</small>
+          </button>
+          <div className="tasbeehActions">
+            <button
+              className="secondary"
+              onClick={() => update({ ...state, goal: state.goal + 100 })}
+            >
+              <Plus />
+              100
+            </button>
+            <button
+              className="secondary"
+              onClick={() => update({ ...state, count: 0 })}
+            >
+              <RotateCcw />
+              {en ? "Reset" : "تصفير"}
+            </button>
+          </div>
+        </>
+      )}
+      {view === "sections" && (
+        <div className="tasbeehList">{phrases.map(phraseRow)}</div>
+      )}
+      {view === "favorites" && (
+        <div className="tasbeehList">
+          {favoritePhrases.length === 0 && (
+            <p className="tasbeehEmpty">
+              {en
+                ? "No favorites yet — star a phrase from Sections."
+                : "لا توجد مفضلة بعد — أضف نجمة من الأقسام."}
+            </p>
+          )}
+          {favoritePhrases.map(phraseRow)}
+        </div>
+      )}
+      {view === "search" && (
+        <>
+          <label className="search">
+            <Search />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={en ? "Search phrases..." : "ابحث عن ذكر..."}
+            />
+          </label>
+          <div className="tasbeehList">{filteredPhrases.map(phraseRow)}</div>
+        </>
+      )}
+      {view === "settings" && (
+        <section className="glass settings">
+          <label>
+            <Vibrate />
+            {en ? "Vibration on tap" : "الاهتزاز عند الضغط"}
+            <input
+              type="checkbox"
+              checked={state.haptic}
+              onChange={(e) => update({ ...state, haptic: e.target.checked })}
+            />
+          </label>
+          <label className="tasbeehGoalInput">
+            <Target />
+            {en ? "Daily goal" : "هدف اليوم"}
+            <input
+              type="number"
+              min={1}
+              value={state.goal}
+              onChange={(e) =>
+                update({ ...state, goal: Math.max(1, +e.target.value || 1) })
+              }
+            />
+          </label>
+          <button
+            className="secondary"
+            disabled={!state.favorites.length}
+            onClick={() => update({ ...state, favorites: [] })}
+          >
+            <RotateCcw />
+            {en ? "Clear favorites" : "مسح المفضلة"}
+          </button>
+        </section>
+      )}
     </>
   );
 }
@@ -1541,19 +1790,15 @@ function QiblaCompass({ city, en }: { city: City; en: boolean }) {
   useEffect(() => {
     let raf = 0,
       lastVisual = 0;
-    const handler = (e: any) => {
-      let v =
-        typeof e.webkitCompassHeading === "number"
-          ? e.webkitCompassHeading
-          : typeof e.alpha === "number"
-            ? (360 - e.alpha) % 360
-            : null;
-      if (v === null) return;
-      v = (v + (screen.orientation?.angle || 0) + 360) % 360;
-      // Adaptive low-pass filter: heavier smoothing when stationary so the
-      // dial does not jitter, lighter smoothing when the user is moving so
-      // the pointer stays responsive.
-      let alpha = 0.18;
+    const receivedAbsolute = { current: false };
+    const process = (rawV: number) => {
+      const v = (rawV + (screen.orientation?.angle || 0) + 360) % 360;
+      // Low-pass filter: the magnetometer alone can swing several degrees
+      // from moment to moment even while the phone is perfectly still, so
+      // ordinary noise (small/medium jumps) is smoothed heavily. Only a
+      // large jump — a real, intentional turn of the phone — is allowed to
+      // move the filter quickly.
+      let alpha = 0.08;
       if (hasSmoothed.current) {
         const prevDeg =
           ((Math.atan2(smoothedSin.current, smoothedCos.current) * 180) /
@@ -1561,10 +1806,9 @@ function QiblaCompass({ city, en }: { city: City; en: boolean }) {
             360) %
           360;
         const diff = Math.abs(((v - prevDeg + 540) % 360) - 180);
-        if (diff > 8) alpha = 0.4;
-        else if (diff > 3) alpha = 0.25;
-        else if (diff > 1) alpha = 0.12;
-        else alpha = 0.05;
+        if (diff > 30) alpha = 0.5;
+        else if (diff > 12) alpha = 0.2;
+        else alpha = 0.08;
       }
       const rad = (v * Math.PI) / 180;
       smoothedSin.current =
@@ -1572,6 +1816,34 @@ function QiblaCompass({ city, en }: { city: City; en: boolean }) {
       smoothedCos.current =
         (1 - alpha) * smoothedCos.current + alpha * Math.cos(rad);
       hasSmoothed.current = true;
+    };
+    // "deviceorientationabsolute" and a plain "deviceorientation" event can
+    // both fire for the same physical reading on some devices — one
+    // referenced to true/magnetic north, the other (without
+    // webkitCompassHeading) referenced to wherever the phone happened to be
+    // pointed when listening started. Feeding both into the same filter
+    // means the needle keeps getting yanked between two different
+    // reference frames, which looks exactly like constant shake. So: trust
+    // an absolute reading (deviceorientationabsolute, or webkitCompassHeading
+    // on iOS) once it's available, and only fall back to the relative
+    // "deviceorientation" alpha for devices that never provide one.
+    const onAbsolute = (e: any) => {
+      if (typeof e.webkitCompassHeading === "number") {
+        receivedAbsolute.current = true;
+        process(e.webkitCompassHeading);
+      } else if (typeof e.alpha === "number") {
+        receivedAbsolute.current = true;
+        process((360 - e.alpha) % 360);
+      }
+    };
+    const onRelative = (e: any) => {
+      if (typeof e.webkitCompassHeading === "number") {
+        receivedAbsolute.current = true;
+        process(e.webkitCompassHeading);
+        return;
+      }
+      if (receivedAbsolute.current) return;
+      if (typeof e.alpha === "number") process((360 - e.alpha) % 360);
     };
     const tick = () => {
       raf = requestAnimationFrame(tick);
@@ -1583,12 +1855,20 @@ function QiblaCompass({ city, en }: { city: City; en: boolean }) {
           Math.PI +
           360) %
         360;
+      // Resultant vector length of the smoothed reading: close to 1 means
+      // recent samples agree closely (the phone is steady), so widen the
+      // deadzone and hold the needle still. A lower value means the
+      // readings disagree (real movement, or a noisy moment) — narrow the
+      // deadzone so the dial stays responsive.
+      const r = Math.sqrt(
+        smoothedSin.current * smoothedSin.current +
+          smoothedCos.current * smoothedCos.current,
+      );
+      const deadzone = r > 0.999 ? 2.2 : r > 0.995 ? 1.2 : 0.5;
       const prev = headingRef.current;
-      // Deadzone: if motion is below 0.5deg since the last render, keep the
-      // previous heading so the dial does not jitter while the phone is still.
       if (prev !== null) {
         const diff = Math.abs(((avg - prev + 540) % 360) - 180);
-        if (diff < 0.5) {
+        if (diff < deadzone) {
           const d = ((bearing - avg + 540) % 360) - 180;
           const isAligned = Math.abs(d) <= 3;
           if (isAligned !== alignedRef.current) {
@@ -1609,12 +1889,12 @@ function QiblaCompass({ city, en }: { city: City; en: boolean }) {
       }
     };
     raf = requestAnimationFrame(tick);
-    window.addEventListener("deviceorientationabsolute", handler, true);
-    window.addEventListener("deviceorientation", handler, true);
+    window.addEventListener("deviceorientationabsolute", onAbsolute, true);
+    window.addEventListener("deviceorientation", onRelative, true);
     return () => {
       cancelAnimationFrame(raf);
-      window.removeEventListener("deviceorientationabsolute", handler, true);
-      window.removeEventListener("deviceorientation", handler, true);
+      window.removeEventListener("deviceorientationabsolute", onAbsolute, true);
+      window.removeEventListener("deviceorientation", onRelative, true);
     };
   }, [bearing]);
   const delta =

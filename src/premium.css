@@ -455,12 +455,8 @@ html[data-theme=dark] nav .on:after{background:linear-gradient(90deg, var(--gold
 .compassBezel{
   position:absolute;inset:0;border-radius:50%;
   background:
-    conic-gradient(from 0deg,
-      rgba(212,179,90,.30) 0deg,
-      rgba(212,179,90,.08) 90deg,
-      rgba(212,179,90,.30) 180deg,
-      rgba(212,179,90,.08) 270deg,
-      rgba(212,179,90,.30) 360deg);
+    radial-gradient(circle at 50% 20%, rgba(255,255,255,.28), transparent 40%),
+    rgba(212,179,90,.20);
   -webkit-mask:radial-gradient(circle, transparent 64%, #000 65%, #000 70%, transparent 71%);
           mask:radial-gradient(circle, transparent 64%, #000 65%, #000 70%, transparent 71%);
   pointer-events:none;
@@ -474,7 +470,7 @@ html[data-theme=dark] nav .on:after{background:linear-gradient(90deg, var(--gold
 /* Rotating dial — contains ticks + cardinal letters */
 .compassDial{
   position:absolute;inset:8%;border-radius:50%;
-  transition:transform .18s var(--ease-out);
+  transition:transform .28s var(--ease-out);
   will-change:transform;
 }
 .tickWrap{
@@ -503,20 +499,20 @@ html[data-theme=dark] nav .on:after{background:linear-gradient(90deg, var(--gold
   text-shadow:0 1px 2px rgba(0,0,0,.10);
 }
 .cardinalLetter.posN{
-  top:6px;left:50%;transform:translateX(-50%);
+  top:25px;left:50%;transform:translateX(-50%);
   color:#c44;
   font-size:14px;
 }
 html[data-theme=dark] .cardinalLetter.posN{color:#e8786f;}
-.cardinalLetter.posE{right:6px;top:50%;transform:translateY(-50%);}
-.cardinalLetter.posS{bottom:6px;left:50%;transform:translateX(-50%);}
-.cardinalLetter.posW{left:6px;top:50%;transform:translateY(-50%);}
+.cardinalLetter.posE{right:23px;top:50%;transform:translateY(-50%);}
+.cardinalLetter.posS{bottom:25px;left:50%;transform:translateX(-50%);}
+.cardinalLetter.posW{left:23px;top:50%;transform:translateY(-50%);}
 
 /* Kaaba marker — positioned at the angle to Qibla */
 .kaabaWrap{
   position:absolute;inset:8%;border-radius:50%;
   pointer-events:none;
-  transition:transform .18s var(--ease-out);
+  transition:transform .28s var(--ease-out);
   will-change:transform;
 }
 .kaabaInner{
@@ -524,7 +520,7 @@ html[data-theme=dark] .cardinalLetter.posN{color:#e8786f;}
   transform-origin:center;
   display:flex;flex-direction:column;align-items:center;
   width:54px;margin-left:-27px;
-  transition:transform .18s var(--ease-out);
+  transition:transform .28s var(--ease-out);
 }
 .kaabaSvg{
   width:44px;height:44px;
@@ -555,7 +551,8 @@ html[data-theme=dark] .compassTopMark{color:var(--gold-soft);}
 
 /* Center hub */
 .compassHub{
-  position:absolute;width:18px;height:18px;border-radius:50%;
+  position:absolute;top:50%;left:50%;width:18px;height:18px;border-radius:50%;
+  transform:translate(-50%,-50%);
   background:
     radial-gradient(circle at 35% 30%, var(--gold-soft), var(--gold) 50%, var(--gold-deep));
   box-shadow:0 2px 6px rgba(0,0,0,.30), inset 0 1px 1px rgba(255,255,255,.40), 0 0 0 2px var(--bg);

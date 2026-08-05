@@ -8,17 +8,11 @@ build/
 # Android generated files
 .gradle/
 android/.gradle/
-android/app/build/
 android/build/
+android/app/build/
 local.properties
 
-# Logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Environment and secrets
+# Environment and signing
 .env
 .env.*
 !.env.example
@@ -26,7 +20,21 @@ yarn-error.log*
 *.keystore
 key.properties
 
-# Editors and OS
+# Logs and editor files
+*.log
 .DS_Store
 .idea/
 .vscode/
+
+# Android signing secrets
+*.jks
+*.keystore
+key.properties
+android/key.properties
+android/app/release/
+
+# Android signing secrets
+android/key.properties
+*.jks
+*.keystore
+key.properties
