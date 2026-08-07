@@ -16,6 +16,7 @@ export type AdhkarCategory =
 export type AdhkarItem = {
   id: string;
   ar: string;
+  en?: string;
   count: number;
   category: AdhkarCategory;
   source?: string;
@@ -124,18 +125,18 @@ export const adhkar: AdhkarItem[] = [
   { id: 'distress-3', ar: 'اللَّهُمَّ رَحْمَتَكَ أَرْجُو فَلَا تَكِلْنِي إِلَىٰ نَفْسِي طَرْفَةَ عَيْنٍ وَأَصْلِحْ لِي شَأْنِي كُلَّهُ لَا إِلَٰهَ إِلَّا أَنْتَ', count: 1, category: 'distress', source: 'سنن أبي داود 5090' },
 
   // ── تسابيح وأذكار عامة ──
-  { id: 'subhanallah', ar: 'سُبْحَانَ اللَّهِ', count: 33, category: 'general' },
-  { id: 'alhamdulillah', ar: 'الْحَمْدُ لِلَّهِ', count: 33, category: 'general' },
-  { id: 'allahu-akbar', ar: 'اللَّهُ أَكْبَرُ', count: 33, category: 'general' },
-  { id: 'subhanallah-bihamdih', ar: 'سُبْحَانَ اللَّهِ وَبِحَمْدِهِ', count: 100, category: 'general', source: 'صحيح مسلم 2692' },
-  { id: 'tahlil', ar: 'لَا إِلَٰهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَىٰ كُلِّ شَيْءٍ قَدِيرٌ', count: 100, category: 'general', source: 'صحيح البخاري 3164' },
-  { id: 'istighfar', ar: 'أَسْتَغْفِرُ اللَّهَ وَأَتُوبُ إِلَيْهِ', count: 100, category: 'general' },
+  { id: 'subhanallah', ar: 'سُبْحَانَ اللَّهِ', en: 'Glory be to Allah', count: 33, category: 'general' },
+  { id: 'alhamdulillah', ar: 'الْحَمْدُ لِلَّهِ', en: 'Praise be to Allah', count: 33, category: 'general' },
+  { id: 'allahu-akbar', ar: 'اللَّهُ أَكْبَرُ', en: 'Allah is the Greatest', count: 33, category: 'general' },
+  { id: 'subhanallah-bihamdih', ar: 'سُبْحَانَ اللَّهِ وَبِحَمْدِهِ', en: 'Glory be to Allah, and praise Him', count: 100, category: 'general', source: 'صحيح مسلم 2692' },
+  { id: 'tahlil', ar: 'لَا إِلَٰهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَىٰ كُلِّ شَيْءٍ قَدِيرٌ', en: 'There is no god but Allah, alone, without partner. His is the dominion and His is the praise, and He is over all things competent.', count: 100, category: 'general', source: 'صحيح البخاري 3164' },
+  { id: 'istighfar', ar: 'أَسْتَغْفِرُ اللَّهَ وَأَتُوبُ إِلَيْهِ', en: "I seek Allah's forgiveness and turn to Him in repentance", count: 100, category: 'general' },
   { id: 'sayyid-istighfar', ar: 'اللَّهُمَّ أَنْتَ رَبِّي لَا إِلَٰهَ إِلَّا أَنْتَ، خَلَقْتَنِي وَأَنَا عَبْدُكَ، وَأَنَا عَلَىٰ عَهْدِكَ وَوَعْدِكَ مَا اسْتَطَعْتُ، أَعُوذُ بِكَ مِنْ شَرِّ مَا صَنَعْتُ، أَبُوءُ لَكَ بِنِعْمَتِكَ عَلَيَّ، وَأَبُوءُ بِذَنْبِي فَاغْفِرْ لِي فَإِنَّهُ لَا يَغْفِرُ الذُّنُوبَ إِلَّا أَنْتَ', count: 1, category: 'general', source: 'صحيح البخاري 6307' },
   { id: 'ayat-kursi', ar: 'اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ، لَا تَأْخُذُهُ سِنَةٌ وَلَا نَوْمٌ، لَّهُ مَا فِي السَّمَاوَاتِ وَمَا فِي الْأَرْضِ، مَن ذَا الَّذِي يَشْفَعُ عِندَهُ إِلَّا بِإِذْنِهِ، يَعْلَمُ مَا بَيْنَ أَيْدِيهِمْ وَمَا خَلْفَهُمْ، وَلَا يُحِيطُونَ بِشَيْءٍ مِّنْ عِلْمِهِ إِلَّا بِمَا شَاءَ، وَسِعَ كُرْسِيُّهُ السَّمَاوَاتِ وَالْأَرْضَ، وَلَا يَئُودُهُ حِفْظُهُمَا، وَهُوَ الْعَلِيُّ الْعَظِيمُ', count: 1, category: 'general', source: 'صحيح مسلم 271' },
   { id: 'ikhlas', ar: 'قُلْ هُوَ اللَّهُ أَحَدٌ، اللَّهُ الصَّمَدُ، لَمْ يَلِدْ وَلَمْ يُولَدْ، وَلَمْ يَكُن لَّهُ كُفُوًا أَحَدٌ', count: 3, category: 'general' },
   { id: 'falaq', ar: 'قُلْ أَعُوذُ بِرَبِّ الْفَلَقِ، مِن شَرِّ مَا خَلَقَ، وَمِن شَرِّ غَاسِقٍ إِذَا وَقَبَ، وَمِن شَرِّ النَّفَّاثَاتِ فِي الْعُقَدِ، وَمِن شَرِّ حَاسِدٍ إِذَا حَسَدَ', count: 3, category: 'general' },
   { id: 'nas', ar: 'قُلْ أَعُوذُ بِرَبِّ النَّاسِ، مَلِكِ النَّاسِ، إِلَٰهِ النَّاسِ، مِن شَرِّ الْوَسْوَاسِ الْخَنَّاسِ، الَّذِي يُوَسْوِسُ فِي صُدُورِ النَّاسِ، مِنَ الْجِنَّةِ وَالنَّاسِ', count: 3, category: 'general' },
-  { id: 'salawat', ar: 'اللَّهُمَّ صَلِّ وَسَلِّمْ عَلَىٰ نَبِيِّنَا مُحَمَّدٍ', count: 10, category: 'general' },
-  { id: 'hawqala', ar: 'لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ', count: 10, category: 'general' },
-  { id: 'la-ilaha', ar: 'لَا إِلَٰهَ إِلَّا اللَّهُ', count: 100, category: 'general' },
+  { id: 'salawat', ar: 'اللَّهُمَّ صَلِّ وَسَلِّمْ عَلَىٰ نَبِيِّنَا مُحَمَّدٍ', en: 'O Allah, send blessings and peace upon our Prophet Muhammad', count: 10, category: 'general' },
+  { id: 'hawqala', ar: 'لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ', en: 'There is no power nor strength except with Allah', count: 10, category: 'general' },
+  { id: 'la-ilaha', ar: 'لَا إِلَٰهَ إِلَّا اللَّهُ', en: 'There is no god but Allah', count: 100, category: 'general' },
 ];

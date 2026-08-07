@@ -1,4 +1,3 @@
-import QuranExperience from "./QuranExperience";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { App as NativeApp } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
@@ -36,20 +35,21 @@ import {
   Droplets,
   BellRing,
   Sparkles,
+  CircleDot,
+  Star,
+  Grid3x3,
+  Plus,
+  Target,
+  Trash2,
+  BatteryCharging,
 } from "lucide-react";
 import { cities, type City } from "./cities";
 import { adhkar, adhkarCategories, type AdhkarItem, type AdhkarCategory } from "./adhkar";
 import { hadiths, type Hadith } from "./hadith";
 import { formatHijri } from "./hijri";
-import { PrayerWidget } from "./native";
-type Tab = "home" | "quran" | "adhkar" | "khatma" | "more";
+import { PrayerWidget, SystemSettings, TasbeehWidget } from "./native";
+type Tab = "home" | "tasbeeh" | "adhkar" | "khatma" | "more";
 type More = "menu" | "qibla" | "hadith" | "settings";
-type Chapter = {
-  id: number;
-  name: string;
-  total_verses: number;
-  verses: { id: number; text: string }[];
-};
 type NotificationSettings = {
   prayers: boolean;
   prePrayerMinutes: number;
@@ -77,8 +77,26 @@ type KhatmaState = {
   completedDates: string[];
   startedAt: string;
 };
-const TOTAL_QURAN_PAGES = 604,
-  KHATMA_STORAGE_KEY = "afaq-khatma-v2";
+type TasbeehState = {
+  count: number;
+  goal: number;
+  current: string | null;
+  favorites: string[];
+  haptic: boolean;
+  lastDate: string;
+  custom: { id: string; ar: string }[];
+};
+const KHATMA_STORAGE_KEY = "afaq-khatma-v2",
+  TASBEEH_STORAGE_KEY = "afaq-tasbeeh-v1";
+const DEFAULT_TASBEEH_STATE: TasbeehState = {
+  count: 0,
+  goal: 100,
+  current: null,
+  favorites: [],
+  haptic: true,
+  lastDate: today(),
+  custom: [],
+};
 const load = <T,>(k: string, f: T): T => {
   try {
     return JSON.parse(localStorage.getItem(k) || "") as T;
@@ -95,7 +113,6 @@ const images = {
   asr: "./images/home/prayer-asr.webp",
   maghrib: "./images/home/prayer-maghrib.webp",
   isha: "./images/home/prayer-isha.webp",
-  quran: "./images/quran/quran-hero.webp",
   adhkar: "./images/adhkar/adhkar-hero.webp",
   qibla: "./images/qibla/qibla-hero.webp",
   hadith: "./images/hadith/hadith-hero.webp",
@@ -129,6 +146,19 @@ function loadKhatma(): KhatmaState {
   } catch {
     return f;
   }
+}
+function loadTasbeeh(): TasbeehState {
+  let state = DEFAULT_TASBEEH_STATE;
+  try {
+    const p = JSON.parse(localStorage.getItem(TASBEEH_STORAGE_KEY) || "null");
+    if (p && typeof p.count === "number")
+      state = { ...DEFAULT_TASBEEH_STATE, ...p };
+  } catch {
+    state = DEFAULT_TASBEEH_STATE;
+  }
+  const t = today();
+  if (state.lastDate !== t) state = { ...state, count: 0, lastDate: t };
+  return state;
 }
 function metrics(p: KhatmaState) {
   const TOTAL = 604;
@@ -202,11 +232,6 @@ export default function App() {
     [dark, setDark] = useState(() => load("dark", false)),
     [city, setCity] = useState<City>(() => load("city", cities[0])),
     [picker, setPicker] = useState(false),
-    [chapter, setChapter] = useState<Chapter | null>(null),
-    [font, setFont] = useState(() => load("quran-font", 30)),
-    [marks, setMarks] = useState<Record<string, boolean>>(() =>
-      load("bookmarks", {}),
-    ),
     [counts, setCounts] = useState<Record<string, number>>(() =>
       load("adhkar-counts", {}),
     ),
@@ -216,7 +241,11 @@ export default function App() {
     [remaining, setRemaining] = useState(""),
     [khatma, setKhatma] = useState<KhatmaState>(loadKhatma),
     [clock, setClock] = useState(() => Date.now()),
-    [quranReaderOpen, setQuranReaderOpen] = useState(false),
+    [tasbeeh, setTasbeehState] = useState<TasbeehState>(loadTasbeeh),
+    [tasbeehView, setTasbeehView] = useState<
+      "counter" | "sections" | "favorites" | "search" | "settings"
+    >("counter"),
+    [tasbeehQuery, setTasbeehQuery] = useState(""),
     [lang, setLang] = useState<"ar" | "en">(() => load("language", "ar")),
     [notificationSettings, setNotificationSettings] =
       useState<NotificationSettings>(() =>
@@ -227,6 +256,10 @@ export default function App() {
     [adhkarQuery, setAdhkarQuery] = useState('');
   const en = lang === "en";
   const tr = (ar: string, english: string) => (en ? english : ar);
+  const tasbeehRef = useRef(tasbeeh);
+  useEffect(() => {
+    tasbeehRef.current = tasbeeh;
+  }, [tasbeeh]);
   useEffect(() => {
     document.documentElement.lang = lang;
     document.documentElement.dir = en ? "ltr" : "rtl";
@@ -346,14 +379,28 @@ export default function App() {
   }, [next[0], next[2].getTime(), city.id, lang]);
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
+    const builtInItem = adhkar.find((a) => a.id === tasbeeh.current);
+    const customItem = tasbeeh.custom.find((c) => c.id === tasbeeh.current);
+    const ar: string = builtInItem?.ar ?? customItem?.ar ?? "";
+    const enText: string | undefined = builtInItem?.en;
+    const phraseText = en && enText ? enText : ar;
+    void TasbeehWidget.update({
+      count: tasbeeh.count,
+      goal: tasbeeh.goal,
+      phrase: phraseText,
+      date: tasbeeh.lastDate,
+      rtl: !en,
+    }).catch(() => undefined);
+  }, [tasbeeh, en]);
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
     let remove: (() => void) | undefined;
     void NativeApp.addListener("backButton", () => {
       if (prompt) setPrompt(false);
       else if (modal) setModal(null);
       else if (picker) setPicker(false);
-      else if (tab === "quran" && quranReaderOpen)
-        window.dispatchEvent(new Event("afaq-quran-back"));
-      else if (chapter) setChapter(null);
+      else if (tab === "tasbeeh" && tasbeehView !== "counter")
+        setTasbeehView("counter");
       else if (more !== "menu") setMore("menu");
       else if (tab !== "home") {
         setTab("home");
@@ -361,7 +408,7 @@ export default function App() {
       } else void NativeApp.exitApp();
     }).then((h) => (remove = () => void h.remove()));
     return () => remove?.();
-  }, [prompt, modal, picker, chapter, tab, more, quranReaderOpen]);
+  }, [prompt, modal, picker, tab, more, tasbeehView]);
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
     let remove: (() => void) | undefined;
@@ -369,6 +416,12 @@ export default function App() {
       if (isActive) {
         setClock(Date.now());
         void verifyNotificationStatus();
+        TasbeehWidget.getState()
+          .then((w) => {
+            if (w.date === today() && w.count > tasbeehRef.current.count)
+              updateTasbeeh({ ...tasbeehRef.current, count: w.count, lastDate: w.date });
+          })
+          .catch(() => undefined);
       }
     }).then((h) => (remove = () => void h.remove()));
     return () => remove?.();
@@ -399,6 +452,11 @@ export default function App() {
   async function openExactAlarmSettings() {
     try {
       await (LocalNotifications as any).changeExactNotificationSetting();
+    } catch {}
+  }
+  async function openBatterySettings() {
+    try {
+      if (Capacitor.isNativePlatform()) await SystemSettings.openAppDetails();
     } catch {}
   }
   async function sendTestNotification() {
@@ -566,17 +624,17 @@ export default function App() {
     }
     await LocalNotifications.schedule({ notifications: list });
   }
-  async function openSura(id: number) {
-    setChapter(await fetch(`./quran/${id}.json`).then((r) => r.json()));
-  }
   function go(t: Tab) {
     setTab(t);
     setMore("menu");
-    setChapter(null);
   }
   function updateKhatma(p: KhatmaState) {
     setKhatma(p);
     save(KHATMA_STORAGE_KEY, p);
+  }
+  function updateTasbeeh(p: TasbeehState) {
+    setTasbeehState(p);
+    save(TASBEEH_STORAGE_KEY, p);
   }
   const filtered = hadiths.filter((h) =>
       (h.ar + h.en + h.source).toLowerCase().includes(query.toLowerCase()),
@@ -674,9 +732,9 @@ export default function App() {
               ))}
             </section>
             <section className="quick">
-              <button onClick={() => go("quran")}>
-                <BookOpen />
-                {tr("القرآن", "Quran")}
+              <button onClick={() => go("tasbeeh")}>
+                <CircleDot />
+                {tr("المسبحة", "Tasbeeh")}
               </button>
               <button onClick={() => go("adhkar")}>
                 <Heart />
@@ -723,10 +781,15 @@ export default function App() {
             </section>
           </>
         )}
-        {tab === "quran" && (
-          <QuranExperience
-            lang={lang}
-            onReaderStateChange={setQuranReaderOpen}
+        {tab === "tasbeeh" && (
+          <TasbeehPage
+            en={en}
+            state={tasbeeh}
+            update={updateTasbeeh}
+            view={tasbeehView}
+            setView={setTasbeehView}
+            query={tasbeehQuery}
+            setQuery={setTasbeehQuery}
           />
         )}
 
@@ -837,15 +900,7 @@ export default function App() {
           </>
         )}
         {tab === "khatma" && (
-          <KhatmaPage
-            plan={khatma}
-            updatePlan={updateKhatma}
-            en={en}
-            onRead={() => {
-              setTab("quran");
-              setChapter(null);
-            }}
-          />
+          <KhatmaPage plan={khatma} updatePlan={updateKhatma} en={en} />
         )}
         {tab === "more" && more === "menu" && (
           <>
@@ -1060,6 +1115,16 @@ export default function App() {
                 <Bell />
                 {tr("إعادة جدولة الإشعارات", "Reschedule notifications")}
               </button>
+              <p className="settingsHint">
+                {tr(
+                  "بعض الأجهزة توقف الإشعارات في الخلفية لتوفير البطارية. لضمان وصولها في وقتها، افتح إعدادات التطبيق وفعّل خيار عدم تقييد البطارية.",
+                  "Some phones pause background notifications to save battery. To make sure they arrive on time, open app settings and allow unrestricted battery usage.",
+                )}
+              </p>
+              <button className="secondary" onClick={openBatterySettings}>
+                <BatteryCharging />
+                {tr("إعدادات البطارية", "Battery settings")}
+              </button>
               <button className="link" onClick={() => setModal("privacy")}>
                 <Shield />
                 {tr("سياسة الخصوصية", "Privacy policy")}
@@ -1076,7 +1141,7 @@ export default function App() {
         {(
           [
             ["home", Home, tr("الرئيسية", "Home")],
-            ["quran", BookOpen, tr("القرآن", "Quran")],
+            ["tasbeeh", CircleDot, tr("المسبحة", "Tasbeeh")],
             ["adhkar", Heart, tr("الأذكار", "Adhkar")],
             ["khatma", CalendarDays, tr("الختمة", "Khatma")],
             ["more", Settings, tr("المزيد", "More")],
@@ -1131,14 +1196,14 @@ export default function App() {
                 </p>
                 <p>
                   {tr(
-                    "البيانات المحفوظة على جهازك فقط: المدينة المختارة، علامات القراءة وتقدم الختمة، وإعدادات المظهر واللغة والإشعارات. لا تُرسل هذه البيانات إلى أي خادم، ولا تُشارك أو تُباع لأي طرف ثالث.",
-                    "Data stored only on your device: your selected city, reading bookmarks and Khatma progress, and your theme, language, and notification settings. None of this is sent to any server, shared, or sold to third parties.",
+                    "البيانات المحفوظة على جهازك فقط: المدينة المختارة، تقدّم خطة الختمة، عدّاد المسبحة والأذكار المفضّلة، وإعدادات المظهر واللغة والإشعارات. لا تُرسل هذه البيانات إلى أي خادم، ولا تُشارك أو تُباع لأي طرف ثالث.",
+                    "Data stored only on your device: your selected city, Khatma plan progress, your Tasbeeh counter and favorite Adhkar, and your theme, language, and notification settings. None of this is sent to any server, shared, or sold to third parties.",
                   )}
                 </p>
                 <p>
                   {tr(
-                    "إذن الإشعارات يُستخدم لتذكيرك بأوقات الصلاة والأذكار، ومستشعر الاتجاه يُستخدم فقط لحساب اتجاه القبلة دون أي تسجيل له. يتصل التطبيق بالإنترنت لتحميل نص القرآن من مصدر مفتوح عند الحاجة فقط، ثم يحفظ نسخة محلية لاستخدامها لاحقًا بلا اتصال.",
-                    "The notification permission is used to remind you of prayer times and Adhkar, and the orientation sensor is used only to calculate the Qibla direction, without recording it. The app connects to the internet only to download Quran text from an open source when needed, then saves a local copy for offline use afterward.",
+                    "إذن الإشعارات يُستخدم لتذكيرك بأوقات الصلاة والأذكار، ومستشعر الاتجاه يُستخدم فقط لحساب اتجاه القبلة دون أي تسجيل له. لا يحتاج التطبيق إلى اتصال بالإنترنت للعمل.",
+                    "The notification permission is used to remind you of prayer times and Adhkar, and the orientation sensor is used only to calculate the Qibla direction, without recording it. The app doesn't need an internet connection to work.",
                   )}
                 </p>
                 <p>
@@ -1153,8 +1218,8 @@ export default function App() {
                 <h2>{tr("حول البرنامج", "About")}</h2>
                 <p>
                   {tr(
-                    "آفاق الإيمان 1.5.0 — رفيقك اليومي في الصلاة والقرآن والذكر: مواقيت الصلاة، اتجاه القبلة، القرآن الكريم مع خطة ختمة، الأذكار، ومكتبة الأحاديث.",
-                    "Afaq Al-Iman 1.5.0 — your daily companion for prayer, Quran, and remembrance: prayer times, Qibla direction, the Holy Quran with a Khatma plan, Adhkar, and a Hadith library.",
+                    "آفاق الإيمان 1.5.0 — رفيقك اليومي في الصلاة والذكر: مواقيت الصلاة، اتجاه القبلة، خطة الختمة، الأذكار، المسبحة الإلكترونية، ومكتبة أحاديث صحيحة.",
+                    "Afaq Al-Iman 1.5.0 — your daily companion for prayer and remembrance: prayer times, Qibla direction, a Khatma plan, Adhkar, an electronic Tasbeeh, and a library of authenticated (sahih) hadith.",
                   )}
                 </p>
                 <p>
@@ -1165,8 +1230,8 @@ export default function App() {
                 </p>
                 <p>
                   {tr(
-                    "نص القرآن مأخوذ من مصحف عثماني ويُتحقق منه قبل عرضه. لا إعلانات ولا أدوات تتبع في التطبيق.",
-                    "The Quran text is drawn from an Uthmani mushaf and verified before display. No ads or tracking tools are included in the app.",
+                    "كل حديث في المكتبة مأخوذ من مصادر معتمدة (صحيح البخاري وصحيح مسلم وغيرها من الكتب الموثوقة)، وتم استبعاد أي حديث ضعيف أو مختلف في صحته. لا إعلانات ولا أدوات تتبع في التطبيق.",
+                    "Every hadith in the library is drawn from authenticated sources (Sahih al-Bukhari, Sahih Muslim, and other trusted collections), with any weak or disputed narration excluded. No ads or tracking tools are included in the app.",
                   )}
                 </p>
               </>
@@ -1301,12 +1366,10 @@ function Benefit({
 function KhatmaPage({
   plan,
   updatePlan,
-  onRead,
   en,
 }: {
   plan: KhatmaState;
   updatePlan: (p: KhatmaState) => void;
-  onRead: () => void;
   en: boolean;
 }) {
   const {
@@ -1423,15 +1486,6 @@ function KhatmaPage({
           {en ? "Expected finish date: " : "تاريخ الانتهاء المتوقع: "}
           <b>{endDate}</b>
         </p>
-        {!complete && (
-          <button
-            className="secondary khatmaAction"
-            onClick={() => onRead()}
-          >
-            <BookOpen />
-            {en ? "Read today's wird" : "قراءة ورد اليوم"}
-          </button>
-        )}
         <button
           className="primary khatmaAction"
           disabled={doneToday || complete}
@@ -1486,6 +1540,290 @@ function KhatmaPage({
           {en ? "Start new plan" : "بدء خطة جديدة"}
         </button>
       </section>
+    </>
+  );
+}
+function TasbeehPage({
+  en,
+  state,
+  update,
+  view,
+  setView,
+  query,
+  setQuery,
+}: {
+  en: boolean;
+  state: TasbeehState;
+  update: (s: TasbeehState) => void;
+  view: "counter" | "sections" | "favorites" | "search" | "settings";
+  setView: (
+    v: "counter" | "sections" | "favorites" | "search" | "settings",
+  ) => void;
+  query: string;
+  setQuery: (q: string) => void;
+}) {
+  const builtIn = useMemo(
+    () => adhkar.filter((a) => a.category === "general"),
+    [],
+  );
+  const customItems: AdhkarItem[] = useMemo(
+    () =>
+      state.custom.map((c) => ({
+        id: c.id,
+        ar: c.ar,
+        count: 0,
+        category: "general" as const,
+      })),
+    [state.custom],
+  );
+  const allPhrases = useMemo(
+    () => [...builtIn, ...customItems],
+    [builtIn, customItems],
+  );
+  const currentPhrase = allPhrases.find((p) => p.id === state.current);
+  const favoritePhrases = allPhrases.filter((p) =>
+    state.favorites.includes(p.id),
+  );
+  const filteredPhrases = allPhrases.filter(
+    (p) => !query || p.ar.includes(query) || p.en?.toLowerCase().includes(query.toLowerCase()),
+  );
+  const [newPhrase, setNewPhrase] = useState("");
+  const [pulse, setPulse] = useState(false);
+  const [celebrate, setCelebrate] = useState(false);
+  async function tap() {
+    const count = state.count + 1;
+    update({ ...state, count });
+    setPulse(true);
+    setTimeout(() => setPulse(false), 160);
+    if (Capacitor.isNativePlatform() && state.haptic) {
+      if (state.goal > 0 && count % state.goal === 0)
+        await Haptics.notification({ type: NotificationType.Success });
+      else await Haptics.impact({ style: ImpactStyle.Light });
+    }
+    if (state.goal > 0 && count % state.goal === 0) {
+      setCelebrate(true);
+      setTimeout(() => setCelebrate(false), 1400);
+    }
+  }
+  function selectPhrase(id: string) {
+    update({ ...state, current: id });
+    setView("counter");
+  }
+  function toggleFavorite(id: string) {
+    const favorites = state.favorites.includes(id)
+      ? state.favorites.filter((f) => f !== id)
+      : [...state.favorites, id];
+    update({ ...state, favorites });
+  }
+  function addCustom() {
+    const text = newPhrase.trim();
+    if (!text) return;
+    update({
+      ...state,
+      custom: [...state.custom, { id: "custom-" + Date.now(), ar: text }],
+    });
+    setNewPhrase("");
+  }
+  function removeCustom(id: string) {
+    update({
+      ...state,
+      custom: state.custom.filter((c) => c.id !== id),
+      current: state.current === id ? null : state.current,
+      favorites: state.favorites.filter((f) => f !== id),
+    });
+  }
+  function phraseRow(p: AdhkarItem) {
+    const custom = p.id.startsWith("custom-");
+    return (
+      <button
+        key={p.id}
+        className={"tasbeehItem" + (state.current === p.id ? " active" : "")}
+        onClick={() => selectPhrase(p.id)}
+      >
+        <div className="tasbeehItemText">
+          <p>{en && p.en ? p.en : p.ar}</p>
+          {!custom && (
+            <small>
+              {p.count} {en ? "times" : "مرة"}
+            </small>
+          )}
+        </div>
+        {custom ? (
+          <span
+            className="tasbeehStar"
+            onClick={(e) => {
+              e.stopPropagation();
+              removeCustom(p.id);
+            }}
+          >
+            <Trash2 />
+          </span>
+        ) : (
+          <span
+            className="tasbeehStar"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleFavorite(p.id);
+            }}
+          >
+            <Star
+              className={state.favorites.includes(p.id) ? "starred" : ""}
+            />
+          </span>
+        )}
+      </button>
+    );
+  }
+  return (
+    <>
+      <div className="tasbeehHeader">
+        <h1>{en ? "Electronic Tasbeeh" : "المسبحة الإلكترونية"}</h1>
+        <p>
+          {en ? "Today's goal: " : "هدف اليوم: "}
+          {state.goal}
+        </p>
+      </div>
+      <nav className="tasbeehNav">
+        {(
+          [
+            ["sections", Grid3x3, en ? "Sections" : "الأقسام"],
+            ["search", Search, en ? "Search" : "البحث"],
+            ["counter", CircleDot, en ? "Counter" : "العداد"],
+            ["favorites", Star, en ? "Favorites" : "المفضلة"],
+            ["settings", Settings, en ? "Settings" : "الإعدادات"],
+          ] as const
+        ).map(([k, I, l]) => (
+          <button
+            key={k}
+            className={view === k ? "on" : ""}
+            onClick={() => setView(k)}
+          >
+            <I />
+            <span>{l}</span>
+          </button>
+        ))}
+      </nav>
+      {view === "counter" && (
+        <>
+          <div className="tasbeehPhrase">
+            {currentPhrase ? (
+              <>
+                <span>
+                  {en && currentPhrase.en ? currentPhrase.en : currentPhrase.ar}
+                </span>
+                <button onClick={() => update({ ...state, current: null })}>
+                  <X />
+                </button>
+              </>
+            ) : (
+              <span className="tasbeehFree">
+                {en ? "Free tasbeeh" : "تسبيح حر"}
+              </span>
+            )}
+          </div>
+          <button
+            className={
+              "tasbeehCircle" +
+              (pulse ? " pulse" : "") +
+              (celebrate ? " celebrate" : "")
+            }
+            onClick={tap}
+          >
+            <b>{state.count}</b>
+            <small>{en ? "Tap to count" : "اضغط للتسبيح"}</small>
+          </button>
+          <div className="tasbeehActions">
+            <button
+              className="secondary"
+              onClick={() => update({ ...state, goal: state.goal + 100 })}
+            >
+              <Plus />
+              100
+            </button>
+            <button
+              className="secondary"
+              onClick={() => update({ ...state, count: 0 })}
+            >
+              <RotateCcw />
+              {en ? "Reset" : "تصفير"}
+            </button>
+          </div>
+        </>
+      )}
+      {view === "sections" && (
+        <>
+          <div className="tasbeehAddForm">
+            <input
+              value={newPhrase}
+              onChange={(e) => setNewPhrase(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addCustom()}
+              placeholder={en ? "Add a custom dhikr..." : "أضف ذكرًا خاصًا بك..."}
+            />
+            <button onClick={addCustom} disabled={!newPhrase.trim()}>
+              <Plus />
+            </button>
+          </div>
+          <div className="tasbeehList">{allPhrases.map(phraseRow)}</div>
+        </>
+      )}
+      {view === "favorites" && (
+        <div className="tasbeehList">
+          {favoritePhrases.length === 0 && (
+            <p className="tasbeehEmpty">
+              {en
+                ? "No favorites yet — star a phrase from Sections."
+                : "لا توجد مفضلة بعد — أضف نجمة من الأقسام."}
+            </p>
+          )}
+          {favoritePhrases.map(phraseRow)}
+        </div>
+      )}
+      {view === "search" && (
+        <>
+          <label className="search">
+            <Search />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={en ? "Search phrases..." : "ابحث عن ذكر..."}
+            />
+          </label>
+          <div className="tasbeehList">{filteredPhrases.map(phraseRow)}</div>
+        </>
+      )}
+      {view === "settings" && (
+        <section className="glass settings">
+          <label>
+            <Vibrate />
+            {en ? "Vibration on tap" : "الاهتزاز عند الضغط"}
+            <input
+              type="checkbox"
+              checked={state.haptic}
+              onChange={(e) => update({ ...state, haptic: e.target.checked })}
+            />
+          </label>
+          <label className="tasbeehGoalInput">
+            <Target />
+            {en ? "Daily goal" : "هدف اليوم"}
+            <input
+              type="number"
+              min={1}
+              value={state.goal}
+              onChange={(e) =>
+                update({ ...state, goal: Math.max(1, +e.target.value || 1) })
+              }
+            />
+          </label>
+          <button
+            className="secondary"
+            disabled={!state.favorites.length}
+            onClick={() => update({ ...state, favorites: [] })}
+          >
+            <RotateCcw />
+            {en ? "Clear favorites" : "مسح المفضلة"}
+          </button>
+        </section>
+      )}
     </>
   );
 }

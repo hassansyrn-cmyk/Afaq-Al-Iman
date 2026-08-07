@@ -380,26 +380,6 @@ nav button:after{
 nav .on:after{transform:translateX(-50%) scaleX(1);}
 html[data-theme=dark] nav .on:after{background:linear-gradient(90deg, var(--gold), var(--gold-soft));}
 
-/* ---- Sura list polish ---- */
-.suras button{
-  background:linear-gradient(180deg, var(--card), color-mix(in srgb, var(--card) 90%, transparent));
-  border:1px solid color-mix(in srgb, var(--gold) 12%, var(--line));
-  box-shadow:var(--shadow-card);
-  transition:transform .18s var(--ease-out), border-color .2s, box-shadow .22s;
-}
-.suras button:active{transform:scale(.98);}
-.suras button:hover{border-color:color-mix(in srgb, var(--gold) 32%, var(--line));box-shadow:var(--shadow-pop);}
-.suras b{
-  background:linear-gradient(145deg, var(--emerald-deep), var(--emerald-bright));
-  box-shadow:0 4px 10px rgba(10,91,75,.30), inset 0 1px 0 rgba(255,255,255,.20);
-}
-
-/* ---- Mushaf page polish ---- */
-.mushafPage{
-  box-shadow:0 12px 30px rgba(168,131,39,.14), inset 0 1px 0 rgba(255,255,255,.6);
-  border:1px solid color-mix(in srgb, #d8c993 60%, var(--line));
-}
-
 /* ===================================================================
    Qibla compass — premium redesign
    =================================================================== */
@@ -632,3 +612,113 @@ html[data-theme=dark] .compassStatus.aligned{color:var(--gold-soft);}
   .kaabaInner{width:48px;margin-left:-24px;}
   .compassReadout{grid-template-columns:1fr;}
 }
+
+/* ===================================================================
+   Electronic Tasbeeh — premium redesign
+   =================================================================== */
+.tasbeehHeader h1{
+  background:linear-gradient(135deg, var(--emerald-bright), var(--emerald-deep));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  letter-spacing:.2px;
+}
+html[data-theme=dark] .tasbeehHeader h1{
+  background:linear-gradient(135deg, var(--gold-soft), var(--gold));
+  -webkit-background-clip:text;background-clip:text;
+}
+.tasbeehNav{
+  border:1px solid color-mix(in srgb, var(--gold) 16%, var(--line));
+  background:linear-gradient(180deg, var(--card), color-mix(in srgb, var(--card) 92%, transparent));
+  box-shadow:var(--shadow-card);
+}
+.tasbeehNav button{transition:color .2s, background .25s var(--ease-out), transform .18s var(--ease-out);}
+.tasbeehNav button:active{transform:scale(.92);}
+.tasbeehNav button.on{
+  color:var(--emerald-bright);
+  background:linear-gradient(180deg, color-mix(in srgb, var(--gold) 16%, transparent), color-mix(in srgb, var(--emerald) 10%, transparent));
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--gold) 30%, transparent);
+}
+html[data-theme=dark] .tasbeehNav button.on{color:var(--gold-soft);}
+
+.tasbeehPhrase{
+  min-height:auto;
+  padding:8px 18px;
+  margin:0 auto 20px;
+  max-width:320px;
+  border-radius:999px;
+  background:color-mix(in srgb, var(--emerald) 6%, transparent);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--gold) 18%, transparent);
+}
+
+.tasbeehCircle{
+  position:relative;
+  background:
+    radial-gradient(circle at 36% 30%, color-mix(in srgb, var(--gold-soft) 45%, var(--card)), transparent 46%),
+    radial-gradient(circle at 68% 74%, color-mix(in srgb, var(--emerald-bright) 30%, var(--card)), transparent 55%),
+    linear-gradient(155deg, color-mix(in srgb, var(--gold) 14%, var(--card)), color-mix(in srgb, var(--emerald) 12%, var(--card)));
+  box-shadow:
+    var(--shadow-gold),
+    inset 0 0 0 9px color-mix(in srgb, var(--gold) 28%, var(--card)),
+    inset 0 2px 4px rgba(255,255,255,.35);
+  transition:transform .18s var(--ease-out), box-shadow .3s var(--ease-out);
+}
+.tasbeehCircle:active{transform:scale(.97);}
+.tasbeehCircle b{
+  background:linear-gradient(135deg, var(--emerald-deep), var(--emerald-bright));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  font-weight:800;
+}
+html[data-theme=dark] .tasbeehCircle b{
+  background:linear-gradient(135deg, var(--gold-soft), var(--gold));
+  -webkit-background-clip:text;background-clip:text;
+}
+@keyframes tasbeehPulse{0%{transform:scale(1)}45%{transform:scale(.93)}100%{transform:scale(1)}}
+.tasbeehCircle.pulse{animation:tasbeehPulse .18s var(--ease-out);}
+@keyframes tasbeehCelebrate{
+  0%{box-shadow:var(--shadow-gold), inset 0 0 0 9px color-mix(in srgb, var(--gold) 28%, var(--card)), 0 0 0 0 var(--gold-glow);}
+  40%{box-shadow:var(--shadow-gold), inset 0 0 0 9px color-mix(in srgb, var(--gold) 55%, var(--card)), 0 0 0 20px color-mix(in srgb, var(--gold) 0%, transparent);}
+  100%{box-shadow:var(--shadow-gold), inset 0 0 0 9px color-mix(in srgb, var(--gold) 28%, var(--card)), 0 0 0 0 color-mix(in srgb, var(--gold) 0%, transparent);}
+}
+.tasbeehCircle.celebrate{animation:tasbeehCelebrate 1.2s var(--ease-out);}
+
+.tasbeehActions button{box-shadow:0 8px 18px rgba(10,91,75,.20), inset 0 1px 0 rgba(255,255,255,.18);}
+
+.tasbeehAddForm{
+  display:flex;gap:8px;margin-bottom:12px;
+  padding:6px 6px 6px 14px;
+  border-radius:16px;
+  border:1px solid color-mix(in srgb, var(--gold) 16%, var(--line));
+  background:linear-gradient(180deg, var(--card), color-mix(in srgb, var(--card) 92%, transparent));
+  box-shadow:0 4px 12px rgba(0,28,22,.05), inset 0 1px 0 rgba(255,255,255,.14);
+}
+.tasbeehAddForm:focus-within{
+  border-color:color-mix(in srgb, var(--gold) 50%, var(--line));
+  box-shadow:0 6px 16px rgba(160,122,35,.10), var(--ring-gold);
+}
+.tasbeehAddForm input{flex:1;border:0;background:none;color:var(--text);font-size:15px;}
+.tasbeehAddForm input:focus{outline:0;}
+.tasbeehAddForm button{
+  display:flex;width:38px;height:38px;flex-shrink:0;align-items:center;justify-content:center;
+  border:0;border-radius:12px;color:#fff;
+  background:linear-gradient(155deg, var(--emerald-bright), var(--emerald-deep));
+  box-shadow:0 6px 14px rgba(10,91,75,.28);
+  transition:transform .18s var(--ease-out), opacity .2s;
+}
+.tasbeehAddForm button:active{transform:scale(.92);}
+.tasbeehAddForm button:disabled{opacity:.4;}
+
+.tasbeehItem{
+  position:relative;overflow:hidden;
+  border:1px solid color-mix(in srgb, var(--gold) 14%, var(--line));
+  background:linear-gradient(180deg, var(--card), color-mix(in srgb, var(--card) 90%, transparent));
+  box-shadow:var(--shadow-card);
+  transition:transform .2s var(--ease-out), box-shadow .25s, border-color .25s;
+}
+.tasbeehItem:active{transform:scale(.98);}
+.tasbeehItem.active{
+  border-color:color-mix(in srgb, var(--gold) 45%, transparent);
+  background:linear-gradient(180deg, color-mix(in srgb, var(--emerald) 9%, var(--card)), var(--card));
+  box-shadow:var(--shadow-pop), inset 0 0 0 1px color-mix(in srgb, var(--gold) 25%, transparent);
+}
+.tasbeehStar{transition:transform .18s var(--ease-out);}
+.tasbeehStar:active{transform:scale(.85);}
+.tasbeehStar .starred{filter:drop-shadow(0 0 5px var(--gold-glow));}
