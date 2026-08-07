@@ -390,6 +390,7 @@ export default function App() {
       phrase: phraseText,
       date: tasbeeh.lastDate,
       rtl: !en,
+      haptic: tasbeeh.haptic,
     }).catch(() => undefined);
   }, [tasbeeh, en]);
   useEffect(() => {
@@ -1580,7 +1581,6 @@ function TasbeehPage({
     () => [...builtIn, ...customItems],
     [builtIn, customItems],
   );
-  const currentPhrase = allPhrases.find((p) => p.id === state.current);
   const favoritePhrases = allPhrases.filter((p) =>
     state.favorites.includes(p.id),
   );
@@ -1706,20 +1706,31 @@ function TasbeehPage({
       {view === "counter" && (
         <>
           <div className="tasbeehPhrase">
-            {currentPhrase ? (
-              <>
-                <span>
-                  {en && currentPhrase.en ? currentPhrase.en : currentPhrase.ar}
-                </span>
-                <button onClick={() => update({ ...state, current: null })}>
-                  <X />
-                </button>
-              </>
-            ) : (
-              <span className="tasbeehFree">
-                {en ? "Free tasbeeh" : "تسبيح حر"}
-              </span>
-            )}
+            <select
+              className="tasbeehSelect"
+              value={state.current ?? ""}
+              onChange={(e) => {
+                const id = e.target.value;
+                if (!id) {
+                  update({ ...state, current: null });
+                  return;
+                }
+                const item = allPhrases.find((p) => p.id === id);
+                update({
+                  ...state,
+                  current: id,
+                  goal: item && item.count > 0 ? item.count : state.goal,
+                });
+              }}
+            >
+              <option value="">{en ? "Free tasbeeh" : "تسبيح حر"}</option>
+              {allPhrases.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {en && p.en ? p.en : p.ar}
+                  {p.count > 0 ? ` — ${p.count} ${en ? "times" : "مرة"}` : ""}
+                </option>
+              ))}
+            </select>
           </div>
           <button
             className={

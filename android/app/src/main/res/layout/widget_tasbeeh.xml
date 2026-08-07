@@ -1,31 +1,67 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:gravity="center"
-    android:padding="14dp"
     android:background="@drawable/widget_background">
 
     <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="14dp">
 
-        <ImageView
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:src="@drawable/ic_widget_crescent_mosque"
-            android:contentDescription="آفاق الإيمان" />
-
-        <TextView
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            android:text="المسبحة"
-            android:textColor="#E8FFFFFF"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_widget_crescent_mosque"
+                android:contentDescription="آفاق الإيمان" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:text="المسبحة"
+                android:textColor="#E8FFFFFF"
+                android:textSize="13sp"
+                android:fontFamily="sans-serif-medium"
+                android:shadowColor="#99000000"
+                android:shadowDx="0"
+                android:shadowDy="1"
+                android:shadowRadius="3" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tasbeeh_count"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="0"
+            android:textColor="#FFFFFFFF"
+            android:textSize="44sp"
+            android:textStyle="bold"
+            android:fontFamily="@font/reem_kufi_semibold"
+            android:shadowColor="#B8000000"
+            android:shadowDx="0"
+            android:shadowDy="2"
+            android:shadowRadius="4" />
+
+        <TextView
+            android:id="@+id/tasbeeh_phrase"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:text="اضغط للتسبيح"
+            android:textColor="#FFF1D580"
             android:textSize="13sp"
             android:fontFamily="sans-serif-medium"
             android:shadowColor="#99000000"
@@ -35,47 +71,16 @@
     </LinearLayout>
 
     <TextView
-        android:id="@+id/tasbeeh_count"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:text="0"
-        android:textColor="#FFFFFFFF"
-        android:textSize="44sp"
+        android:id="@+id/tasbeeh_reset"
+        android:layout_width="34dp"
+        android:layout_height="34dp"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="6dp"
+        android:gravity="center"
+        android:text="↺"
+        android:textColor="#E8FFFFFF"
+        android:textSize="18sp"
         android:textStyle="bold"
-        android:fontFamily="@font/reem_kufi_semibold"
-        android:shadowColor="#B8000000"
-        android:shadowDx="0"
-        android:shadowDy="2"
-        android:shadowRadius="4" />
-
-    <TextView
-        android:id="@+id/tasbeeh_phrase"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:maxLines="1"
-        android:ellipsize="end"
-        android:text="اضغط للتسبيح"
-        android:textColor="#FFF1D580"
-        android:textSize="13sp"
-        android:fontFamily="sans-serif-medium"
-        android:shadowColor="#99000000"
-        android:shadowDx="0"
-        android:shadowDy="1"
-        android:shadowRadius="3" />
-
-    <TextView
-        android:id="@+id/tasbeeh_goal"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="1dp"
-        android:text="الهدف 100"
-        android:textColor="#D0FFF1D5"
-        android:textSize="10sp"
-        android:fontFamily="sans-serif-medium"
-        android:shadowColor="#99000000"
-        android:shadowDx="0"
-        android:shadowDy="1"
-        android:shadowRadius="2" />
-</LinearLayout>
+        android:background="@drawable/widget_countdown_background"
+        android:contentDescription="تصفير" />
+</FrameLayout>

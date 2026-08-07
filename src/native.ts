@@ -22,6 +22,7 @@ export interface TasbeehWidgetPlugin {
     phrase: string;
     date: string;
     rtl: boolean;
+    haptic: boolean;
   }): Promise<void>;
   getState(): Promise<{ count: number; date: string }>;
 }

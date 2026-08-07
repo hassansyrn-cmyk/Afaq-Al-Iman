@@ -23,6 +23,7 @@ public class TasbeehWidgetPlugin extends Plugin {
         e.putString("phrase", call.getString("phrase", ""));
         e.putString("date", call.getString("date", ""));
         e.putBoolean("rtl", Boolean.TRUE.equals(call.getBoolean("rtl", true)));
+        e.putBoolean("haptic", Boolean.TRUE.equals(call.getBoolean("haptic", true)));
         e.apply();
 
         AppWidgetManager manager = AppWidgetManager.getInstance(context);
